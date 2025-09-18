@@ -1,0 +1,5 @@
+# Ignore prototypes created by an AI
+prototypes
+
+# Ignore Go intermediary artifacts
+**/go.sum
