@@ -44,7 +44,7 @@ func (u *AcmeUser) GetPrivateKey() crypto.PrivateKey {
 	return u.key
 }
 
-func handleFQDN(ctx context.Context, fqdn string, acmeClient *lego.Client, kvCertClient *azcertificates.Client) {
+func handleFQDN(ctx context.Context, fqdn string, acmeClient *lego.Client, kvCertClient *azcertificates.Client, expireThreshold int) {
 	certName := "cert-" + strings.ReplaceAll(fqdn, ".", "-")
 	log.Printf("Checking %s...", fqdn)
 
@@ -58,8 +58,8 @@ func handleFQDN(ctx context.Context, fqdn string, acmeClient *lego.Client, kvCer
 		log.Printf("Certificate does not exist in Key Vault")
 	}
 
-	if daysLeft > 7 {
-		log.Printf("Skipping renewal; certificate still valid")
+	if daysLeft > expireThreshold {
+		log.Printf("Skipping renewal; certificate still valid (expires in %d days, threshold is %d days)", daysLeft, expireThreshold)
 		return
 	}
 
@@ -228,6 +228,7 @@ storing them in Azure Key Vault.`,
 	runCmd.Flags().StringP("subscription", "s", "", "Azure subscription ID")
 	runCmd.Flags().StringP("resource-group", "g", "", "Azure resource group name")
 	runCmd.Flags().Bool("staging", true, "Use Let's Encrypt staging environment")
+	runCmd.Flags().IntP("expire-threshold", "t", 7, "Certificate expiration threshold in days")
 
 	// Create environment subcommand
 	var envCmd = &cobra.Command{
@@ -246,6 +247,7 @@ storing them in Azure Key Vault.`,
 	viper.BindPFlag("subscription", runCmd.Flags().Lookup("subscription"))
 	viper.BindPFlag("resource-group", runCmd.Flags().Lookup("resource-group"))
 	viper.BindPFlag("staging", runCmd.Flags().Lookup("staging"))
+	viper.BindPFlag("expire-threshold", runCmd.Flags().Lookup("expire-threshold"))
 
 	// Bind flags for environment command
 	viper.BindPFlag("shell", envCmd.Flags().Lookup("shell"))
@@ -285,6 +287,7 @@ func runCertificateProvisioner() {
 	subscriptionId := viper.GetString("subscription")
 	resourceGroupName := viper.GetString("resource-group")
 	staging := viper.GetBool("staging")
+	expireThreshold := viper.GetInt("expire-threshold")
 
 	if len(domains) == 0 {
 		log.Fatalf("No domains were specified. Use -d flag at least once.")
@@ -402,7 +405,7 @@ func runCertificateProvisioner() {
 					continue
 				}
 				log.Printf("Found record %s (%s).", fqdn, rsType)
-				handleFQDN(ctx, fqdn, acmeClient, kvCertClient)
+				handleFQDN(ctx, fqdn, acmeClient, kvCertClient, expireThreshold)
 			}
 		}
 	}

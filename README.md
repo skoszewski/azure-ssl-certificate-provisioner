@@ -164,6 +164,7 @@ Executes the SSL certificate provisioner.
 
 Flags:
   -d, --domains strings         Domain(s) to search for records (required)
+  -t, --expire-threshold int    Certificate expiration threshold in days (default: 7)
   -g, --resource-group string   Azure resource group name (required)
   -s, --subscription string     Azure subscription ID (required)
       --staging                 Use Let's Encrypt staging environment (default: true)
@@ -187,14 +188,14 @@ Flags:
 1. **Discovery**: Scans specified Azure DNS zones for A and CNAME records
 2. **Filtering**: Only processes records with `acme=true` metadata
 3. **Certificate Check**: Checks existing certificates in Key Vault for expiration
-4. **Renewal Logic**: Renews certificates expiring within 7 days
+4. **Renewal Logic**: Renews certificates expiring within the specified threshold (default: 7 days)
 5. **ACME Challenge**: Uses DNS-01 challenge with Azure DNS provider
 6. **Storage**: Stores certificates in PKCS#12 format in Azure Key Vault
 
 ## Certificate Lifecycle
 
 - **New Certificates**: Generated for domains without existing certificates
-- **Renewal**: Automatic renewal for certificates expiring within 7 days
+- **Renewal**: Automatic renewal for certificates expiring within the specified threshold (default: 7 days)
 - **Validation**: DNS-01 challenge validates domain ownership
 - **Storage**: Certificates stored as secrets in Azure Key Vault with naming pattern: `cert-domain-com`
 
@@ -216,6 +217,11 @@ Flags:
    - Verify Key Vault permissions (Certificate Officer role required)
    - Ensure Key Vault URL is correctly formatted
    - Check Key Vault access policies
+
+4. **Certificates Not Being Renewed**
+   - Check the expiration threshold setting (default: 7 days)
+   - Use `--expire-threshold` to adjust renewal timing
+   - Verify certificate expiration dates in Key Vault logs
 
 ### Debug Mode
 
