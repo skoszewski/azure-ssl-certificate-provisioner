@@ -179,49 +179,31 @@ func generateEnvironmentTemplate() {
 }
 
 func generateBashTemplate() {
-	fmt.Println("# Azure SSL Certificate Provisioner - Environment Variables")
-	fmt.Println("# Copy and modify these values for your environment")
-	fmt.Println()
 	fmt.Println("# ACME account email for Let's Encrypt registration")
 	fmt.Println("export ACME_EMAIL=\"your-email@example.com\"")
-	fmt.Println()
 	fmt.Println("# Azure subscription and resource group")
 	fmt.Println("export AZURE_SUBSCRIPTION_ID=\"your-azure-subscription-id\"")
 	fmt.Println("export RESOURCE_GROUP_NAME=\"your-resource-group-name\"")
-	fmt.Println()
 	fmt.Println("# Azure Key Vault for certificate storage")
 	fmt.Println("export AZURE_KEY_VAULT_URL=\"https://your-keyvault.vault.azure.net/\"")
-	fmt.Println()
 	fmt.Println("# Azure authentication (Service Principal)")
 	fmt.Println("export AZURE_CLIENT_ID=\"your-service-principal-client-id\"")
 	fmt.Println("export AZURE_CLIENT_SECRET=\"your-service-principal-client-secret\"")
 	fmt.Println("export AZURE_TENANT_ID=\"your-azure-tenant-id\"")
-	fmt.Println()
-	fmt.Println("# Usage example:")
-	fmt.Println("# ./azure-ssl-certificate-provisioner run -d example.com -d '*.example.com'")
 }
 
 func generatePowerShellTemplate() {
-	fmt.Println("# Azure SSL Certificate Provisioner - Environment Variables")
-	fmt.Println("# Copy and modify these values for your environment")
-	fmt.Println()
 	fmt.Println("# ACME account email for Let's Encrypt registration")
 	fmt.Println("$env:ACME_EMAIL = \"your-email@example.com\"")
-	fmt.Println()
 	fmt.Println("# Azure subscription and resource group")
 	fmt.Println("$env:AZURE_SUBSCRIPTION_ID = \"your-azure-subscription-id\"")
 	fmt.Println("$env:RESOURCE_GROUP_NAME = \"your-resource-group-name\"")
-	fmt.Println()
 	fmt.Println("# Azure Key Vault for certificate storage")
 	fmt.Println("$env:AZURE_KEY_VAULT_URL = \"https://your-keyvault.vault.azure.net/\"")
-	fmt.Println()
 	fmt.Println("# Azure authentication (Service Principal)")
 	fmt.Println("$env:AZURE_CLIENT_ID = \"your-service-principal-client-id\"")
 	fmt.Println("$env:AZURE_CLIENT_SECRET = \"your-service-principal-client-secret\"")
 	fmt.Println("$env:AZURE_TENANT_ID = \"your-azure-tenant-id\"")
-	fmt.Println()
-	fmt.Println("# Usage example:")
-	fmt.Println("# .\\azure-ssl-certificate-provisioner.exe run -d example.com -d '*.example.com'")
 }
 
 func createServicePrincipal(displayName, tenantID, subscriptionID string, assignDNSRole bool, resourceGroupName, keyVaultName, keyVaultResourceGroup string) (*ServicePrincipalInfo, error) {
