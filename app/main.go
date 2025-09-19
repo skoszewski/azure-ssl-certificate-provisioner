@@ -5,9 +5,13 @@ import (
 	"crypto"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"log"
+	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -46,6 +50,30 @@ type ServicePrincipalInfo struct {
 	TenantID           string
 }
 
+// Account represents the lego-compatible account structure
+type Account struct {
+	Email        string                 `json:"email"`
+	Registration *registration.Resource `json:"registration"`
+	key          crypto.PrivateKey      // Not serialized to JSON
+}
+
+// AccountsStorage mimics lego's account storage structure
+type AccountsStorage struct {
+	email           string
+	serverURL       string
+	rootPath        string
+	rootUserPath    string
+	keysPath        string
+	accountFilePath string
+}
+
+const (
+	baseAccountsRootFolderName = "accounts"
+	baseKeysFolderName         = "keys"
+	accountFileName            = "account.json"
+	filePerm                   = 0600
+)
+
 func (u *AcmeUser) GetEmail() string {
 	return u.Email
 }
@@ -56,6 +84,230 @@ func (u *AcmeUser) GetRegistration() *registration.Resource {
 
 func (u *AcmeUser) GetPrivateKey() crypto.PrivateKey {
 	return u.key
+}
+
+// Account interface implementation for lego compatibility
+func (a *Account) GetEmail() string {
+	return a.Email
+}
+
+func (a *Account) GetRegistration() *registration.Resource {
+	return a.Registration
+}
+
+func (a *Account) GetPrivateKey() crypto.PrivateKey {
+	return a.key
+}
+
+// NewAccountsStorage creates a new lego-compatible AccountsStorage
+func NewAccountsStorage(email, serverURL string) (*AccountsStorage, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user home directory: %v", err)
+	}
+
+	// Parse server URL to create directory name (replicate lego's logic)
+	parsedURL, err := url.Parse(serverURL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid server URL: %v", err)
+	}
+
+	rootPath := filepath.Join(homeDir, ".lego", baseAccountsRootFolderName)
+	serverPath := strings.NewReplacer(":", "_", "/", string(os.PathSeparator)).Replace(parsedURL.Host)
+	accountsPath := filepath.Join(rootPath, serverPath)
+	rootUserPath := filepath.Join(accountsPath, email)
+
+	return &AccountsStorage{
+		email:           email,
+		serverURL:       serverURL,
+		rootPath:        rootPath,
+		rootUserPath:    rootUserPath,
+		keysPath:        filepath.Join(rootUserPath, baseKeysFolderName),
+		accountFilePath: filepath.Join(rootUserPath, accountFileName),
+	}, nil
+}
+
+func (s *AccountsStorage) ExistsAccountFilePath() bool {
+	if _, err := os.Stat(s.accountFilePath); os.IsNotExist(err) {
+		return false
+	} else if err != nil {
+		log.Printf("Error checking account file: %v", err)
+		return false
+	}
+	return true
+}
+
+func (s *AccountsStorage) Save(account *Account) error {
+	// Create directory structure
+	if err := s.createUserFolder(); err != nil {
+		return err
+	}
+
+	// Save account.json
+	jsonBytes, err := json.MarshalIndent(account, "", "\t")
+	if err != nil {
+		return fmt.Errorf("failed to marshal account data: %v", err)
+	}
+
+	if err := os.WriteFile(s.accountFilePath, jsonBytes, filePerm); err != nil {
+		return fmt.Errorf("failed to write account file: %v", err)
+	}
+
+	log.Printf("Saved ACME account data to: %s", s.accountFilePath)
+	return nil
+}
+
+func (s *AccountsStorage) LoadAccount(privateKey crypto.PrivateKey) (*Account, error) {
+	fileBytes, err := os.ReadFile(s.accountFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("could not load account file: %v", err)
+	}
+
+	var account Account
+	if err := json.Unmarshal(fileBytes, &account); err != nil {
+		return nil, fmt.Errorf("could not parse account file: %v", err)
+	}
+
+	account.key = privateKey
+	return &account, nil
+}
+
+func (s *AccountsStorage) GetPrivateKey(keyType certcrypto.KeyType) (crypto.PrivateKey, error) {
+	keyFilePath := filepath.Join(s.keysPath, s.email+".key")
+
+	// Try to load existing key
+	if _, err := os.Stat(keyFilePath); err == nil {
+		return s.loadPrivateKey(keyFilePath)
+	}
+
+	// Generate new key
+	log.Printf("No key found for account %s. Generating a %s key.", s.email, keyType)
+	if err := s.createKeysFolder(); err != nil {
+		return nil, err
+	}
+
+	privateKey, err := s.generatePrivateKey(keyFilePath, keyType)
+	if err != nil {
+		return nil, fmt.Errorf("could not generate private key: %v", err)
+	}
+
+	log.Printf("Saved key to %s", keyFilePath)
+	return privateKey, nil
+}
+
+func (s *AccountsStorage) createUserFolder() error {
+	return os.MkdirAll(s.rootUserPath, 0700)
+}
+
+func (s *AccountsStorage) createKeysFolder() error {
+	return os.MkdirAll(s.keysPath, 0700)
+}
+
+func (s *AccountsStorage) generatePrivateKey(file string, keyType certcrypto.KeyType) (crypto.PrivateKey, error) {
+	privateKey, err := certcrypto.GeneratePrivateKey(keyType)
+	if err != nil {
+		return nil, err
+	}
+
+	certOut, err := os.Create(file)
+	if err != nil {
+		return nil, err
+	}
+	defer certOut.Close()
+
+	pemKey := certcrypto.PEMBlock(privateKey)
+	if err := pem.Encode(certOut, pemKey); err != nil {
+		return nil, err
+	}
+
+	// Set file permissions to owner read/write only
+	if err := os.Chmod(file, filePerm); err != nil {
+		return nil, err
+	}
+
+	return privateKey, nil
+}
+
+func (s *AccountsStorage) loadPrivateKey(file string) (crypto.PrivateKey, error) {
+	keyBytes, err := os.ReadFile(file)
+	if err != nil {
+		return nil, err
+	}
+
+	keyBlock, _ := pem.Decode(keyBytes)
+	if keyBlock == nil {
+		return nil, fmt.Errorf("failed to decode PEM block from key file")
+	}
+
+	switch keyBlock.Type {
+	case "RSA PRIVATE KEY":
+		return x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
+	case "EC PRIVATE KEY":
+		return x509.ParseECPrivateKey(keyBlock.Bytes)
+	case "PRIVATE KEY":
+		return x509.ParsePKCS8PrivateKey(keyBlock.Bytes)
+	default:
+		return nil, fmt.Errorf("unknown private key type: %s", keyBlock.Type)
+	}
+}
+
+func loadOrCreateAccount(email, serverURL string) (*AcmeUser, error) {
+	// Create lego-compatible account storage
+	accountsStorage, err := NewAccountsStorage(email, serverURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create accounts storage: %v", err)
+	}
+
+	// Try to load existing account
+	if accountsStorage.ExistsAccountFilePath() {
+		log.Printf("Loading existing ACME account for %s", email)
+
+		// Load private key
+		privateKey, err := accountsStorage.GetPrivateKey(certcrypto.RSA2048)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load private key: %v", err)
+		}
+
+		// Load account data
+		account, err := accountsStorage.LoadAccount(privateKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load account: %v", err)
+		}
+
+		return &AcmeUser{
+			Email:        account.Email,
+			Registration: account.Registration,
+			key:          account.key,
+		}, nil
+	}
+
+	// Create new account
+	log.Printf("Creating new ACME account for %s", email)
+
+	privateKey, err := accountsStorage.GetPrivateKey(certcrypto.RSA2048)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate private key: %v", err)
+	}
+
+	user := &AcmeUser{Email: email, key: privateKey}
+	return user, nil
+}
+
+func saveAccountData(user *AcmeUser, serverURL string) error {
+	// Create lego-compatible account storage
+	accountsStorage, err := NewAccountsStorage(user.Email, serverURL)
+	if err != nil {
+		return fmt.Errorf("failed to create accounts storage: %v", err)
+	}
+
+	// Convert AcmeUser to Account for saving
+	account := &Account{
+		Email:        user.Email,
+		Registration: user.Registration,
+		key:          user.key,
+	}
+
+	return accountsStorage.Save(account)
 }
 
 func handleFQDN(ctx context.Context, fqdn string, acmeClient *lego.Client, kvCertClient *azcertificates.Client, expireThreshold int) {
@@ -627,25 +879,27 @@ func runCertificateProvisioner() {
 		log.Fatalf("failed to create Key Vault client: %v", err)
 	}
 
-	privateKey, err := certcrypto.GeneratePrivateKey(certcrypto.RSA2048)
-	if err != nil {
-		log.Fatalf("failed to generate private key: %v", err)
+	// Configure ACME server based on staging flag
+	var serverURL string
+	if staging {
+		serverURL = "https://acme-staging-v02.api.letsencrypt.org/directory"
+		log.Printf("Using Let's Encrypt staging environment")
+	} else {
+		serverURL = "https://acme-v02.api.letsencrypt.org/directory"
+		log.Printf("Using Let's Encrypt production environment")
 	}
 
-	user := &AcmeUser{Email: email, key: privateKey}
+	// Load or create ACME account with persistence
+	user, err := loadOrCreateAccount(email, serverURL)
+	if err != nil {
+		log.Fatalf("failed to load or create ACME account: %v", err)
+	}
 	config := lego.NewConfig(user)
 	if config == nil {
 		log.Fatalf("failed to create ACME config")
 	}
 
-	// Configure ACME server based on staging flag
-	if staging {
-		config.CADirURL = "https://acme-staging-v02.api.letsencrypt.org/directory"
-		log.Printf("Using Let's Encrypt staging environment")
-	} else {
-		config.CADirURL = "https://acme-v02.api.letsencrypt.org/directory"
-		log.Printf("Using Let's Encrypt production environment")
-	}
+	config.CADirURL = serverURL
 
 	acmeClient, err := lego.NewClient(config)
 	if err != nil {
@@ -661,11 +915,24 @@ func runCertificateProvisioner() {
 		log.Fatalf("failed to set DNS challenge provider: %v", err)
 	}
 
-	reg, err := acmeClient.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: true})
-	if err != nil {
-		log.Fatalf("failed to register ACME account: %v", err)
+	// Only register if we don't have existing registration
+	if user.Registration == nil {
+		log.Printf("Registering new ACME account with %s...", config.CADirURL)
+		reg, err := acmeClient.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: true})
+		if err != nil {
+			log.Fatalf("failed to register ACME account: %v", err)
+		}
+		user.Registration = reg
+
+		// Save the account data for future runs
+		if err := saveAccountData(user, serverURL); err != nil {
+			log.Printf("Warning: Failed to save account registration: %v", err)
+		} else {
+			log.Printf("Saved ACME account registration for future use")
+		}
+	} else {
+		log.Printf("Using existing ACME account registration for %s", user.Email)
 	}
-	user.Registration = reg
 
 	for _, zone := range domains {
 		log.Printf("Processing DNS zone: %s", zone)
