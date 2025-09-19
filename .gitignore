@@ -3,3 +3,7 @@ prototypes
 
 # Ignore Go intermediary artifacts
 **/go.sum
+
+# Ignore environment variable files
+.env
+.env.*
