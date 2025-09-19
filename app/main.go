@@ -150,6 +150,60 @@ func validateRequiredEnvVars() error {
 	return nil
 }
 
+func generateEnvironmentTemplate() {
+	shell := viper.GetString("shell")
+
+	switch strings.ToLower(shell) {
+	case "powershell", "ps1":
+		generatePowerShellTemplate()
+	case "bash", "sh":
+		generateBashTemplate()
+	default:
+		log.Printf("Unsupported shell type: %s. Supported types: bash, powershell", shell)
+		generateBashTemplate()
+	}
+}
+
+func generateBashTemplate() {
+	fmt.Println("# Azure SSL Certificate Provisioner - Environment Variables")
+	fmt.Println("# Copy and modify these values for your environment")
+	fmt.Println()
+	fmt.Println("# Azure subscription and resource group")
+	fmt.Println("export AZURE_SUBSCRIPTION_ID=\"your-azure-subscription-id\"")
+	fmt.Println("export RESOURCE_GROUP_NAME=\"your-resource-group-name\"")
+	fmt.Println()
+	fmt.Println("# Azure Key Vault for certificate storage")
+	fmt.Println("export AZURE_KEY_VAULT_URL=\"https://your-keyvault.vault.azure.net/\"")
+	fmt.Println()
+	fmt.Println("# Azure authentication (Service Principal)")
+	fmt.Println("export AZURE_CLIENT_ID=\"your-service-principal-client-id\"")
+	fmt.Println("export AZURE_CLIENT_SECRET=\"your-service-principal-client-secret\"")
+	fmt.Println("export AZURE_TENANT_ID=\"your-azure-tenant-id\"")
+	fmt.Println()
+	fmt.Println("# Usage example:")
+	fmt.Println("# ./azure-ssl-certificate-provisioner run -d example.com -d '*.example.com'")
+}
+
+func generatePowerShellTemplate() {
+	fmt.Println("# Azure SSL Certificate Provisioner - Environment Variables")
+	fmt.Println("# Copy and modify these values for your environment")
+	fmt.Println()
+	fmt.Println("# Azure subscription and resource group")
+	fmt.Println("$env:AZURE_SUBSCRIPTION_ID = \"your-azure-subscription-id\"")
+	fmt.Println("$env:RESOURCE_GROUP_NAME = \"your-resource-group-name\"")
+	fmt.Println()
+	fmt.Println("# Azure Key Vault for certificate storage")
+	fmt.Println("$env:AZURE_KEY_VAULT_URL = \"https://your-keyvault.vault.azure.net/\"")
+	fmt.Println()
+	fmt.Println("# Azure authentication (Service Principal)")
+	fmt.Println("$env:AZURE_CLIENT_ID = \"your-service-principal-client-id\"")
+	fmt.Println("$env:AZURE_CLIENT_SECRET = \"your-service-principal-client-secret\"")
+	fmt.Println("$env:AZURE_TENANT_ID = \"your-azure-tenant-id\"")
+	fmt.Println()
+	fmt.Println("# Usage example:")
+	fmt.Println("# .\\azure-ssl-certificate-provisioner.exe run -d example.com -d '*.example.com'")
+}
+
 func main() {
 	var rootCmd = &cobra.Command{
 		Use:   "azure-ssl-certificate-provisioner",
@@ -157,22 +211,44 @@ func main() {
 		Long: `Azure SSL Certificate Provisioner scans Azure DNS zones for records marked with 
 ACME metadata and automatically provisions SSL certificates using Let's Encrypt, 
 storing them in Azure Key Vault.`,
+	}
+
+	// Create run subcommand
+	var runCmd = &cobra.Command{
+		Use:   "run",
+		Short: "Run the SSL certificate provisioner",
+		Long:  `Scan Azure DNS zones and provision SSL certificates for records marked with ACME metadata.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			runCertificateProvisioner()
 		},
 	}
 
-	// Configure flags
-	rootCmd.PersistentFlags().StringSliceP("domains", "d", nil, "Domain(s) to search for records (can be used multiple times)")
-	rootCmd.PersistentFlags().StringP("subscription", "s", "", "Azure subscription ID")
-	rootCmd.PersistentFlags().StringP("resource-group", "g", "", "Azure resource group name")
-	rootCmd.PersistentFlags().Bool("staging", true, "Use Let's Encrypt staging environment")
+	// Configure flags for run command
+	runCmd.Flags().StringSliceP("domains", "d", nil, "Domain(s) to search for records (can be used multiple times)")
+	runCmd.Flags().StringP("subscription", "s", "", "Azure subscription ID")
+	runCmd.Flags().StringP("resource-group", "g", "", "Azure resource group name")
+	runCmd.Flags().Bool("staging", true, "Use Let's Encrypt staging environment")
 
-	// Bind flags to viper
-	viper.BindPFlag("domains", rootCmd.PersistentFlags().Lookup("domains"))
-	viper.BindPFlag("subscription", rootCmd.PersistentFlags().Lookup("subscription"))
-	viper.BindPFlag("resource-group", rootCmd.PersistentFlags().Lookup("resource-group"))
-	viper.BindPFlag("staging", rootCmd.PersistentFlags().Lookup("staging"))
+	// Create environment subcommand
+	var envCmd = &cobra.Command{
+		Use:   "environment",
+		Short: "Generate environment variable templates",
+		Long:  `Generate Bash or PowerShell environment variable templates for required configuration.`,
+		Run: func(cmd *cobra.Command, args []string) {
+			generateEnvironmentTemplate()
+		},
+	}
+
+	envCmd.Flags().StringP("shell", "s", "bash", "Shell type for template (bash, powershell)")
+
+	// Bind flags to viper for run command
+	viper.BindPFlag("domains", runCmd.Flags().Lookup("domains"))
+	viper.BindPFlag("subscription", runCmd.Flags().Lookup("subscription"))
+	viper.BindPFlag("resource-group", runCmd.Flags().Lookup("resource-group"))
+	viper.BindPFlag("staging", runCmd.Flags().Lookup("staging"))
+
+	// Bind flags for environment command
+	viper.BindPFlag("shell", envCmd.Flags().Lookup("shell"))
 
 	// Set environment variable bindings
 	viper.BindEnv("subscription", "AZURE_SUBSCRIPTION_ID")
@@ -187,10 +263,14 @@ storing them in Azure Key Vault.`,
 	// Set defaults
 	viper.SetDefault("staging", true)
 
-	// Mark required flags
-	rootCmd.MarkPersistentFlagRequired("domains")
-	rootCmd.MarkPersistentFlagRequired("subscription")
-	rootCmd.MarkPersistentFlagRequired("resource-group")
+	// Mark required flags for run command
+	runCmd.MarkFlagRequired("domains")
+	runCmd.MarkFlagRequired("subscription")
+	runCmd.MarkFlagRequired("resource-group")
+
+	// Add subcommands to root command
+	rootCmd.AddCommand(runCmd)
+	rootCmd.AddCommand(envCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatalf("Command execution failed: %v", err)

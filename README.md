@@ -1,5 +1,265 @@
 # Azure SSL Certificate Provisioner
 
-## ACME Docs
+Automatically provision SSL certificates from Let's Encrypt for Azure DNS zones. This tool scans Azure DNS zones for records marked with ACME metadata and automatically provisions SSL certificates using Let's Encrypt, storing them in Azure Key Vault.
 
-ACME Staging: [https://acme-staging-v02.api.letsencrypt.org/directory](https://acme-staging-v02.api.letsencrypt.org/directory).
+## Disclaimer
+
+**This code has been mostly generated with AI assistance. Use at your own risk.**
+
+The code has been reviewed and is available under the MIT license.
+
+## Features
+
+- **Automatic SSL Certificate Provisioning** - Obtains certificates from Let's Encrypt using DNS-01 challenges
+- **Metadata-Driven Discovery** - Only processes DNS records marked with `acme=true` metadata
+- **Azure Integration** - Works with Azure DNS zones and stores certificates in Azure Key Vault
+- **Certificate Renewal** - Automatically renews certificates expiring within 7 days
+- **Staging Support** - Built-in support for Let's Encrypt staging environment for testing
+- **Template Generation** - Generate environment variable templates for easy setup
+
+## Prerequisites
+
+1. **Azure Subscription** with appropriate permissions
+2. **Azure DNS Zone** configured and accessible
+3. **Azure Key Vault** for certificate storage
+4. **Azure Service Principal** with the following permissions:
+   - DNS Zone Contributor on target DNS zones
+   - Key Vault Certificate Officer on target Key Vault
+   - Reader access on resource groups and subscriptions
+
+## Installation
+
+### From Source
+
+```bash
+git clone https://github.com/skoszewski/azure-ssl-certificate-provisioner.git
+cd azure-ssl-certificate-provisioner/app
+go build -o azure-ssl-certificate-provisioner .
+```
+
+## Configuration
+
+### Environment Variables
+
+The tool requires the following environment variables:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `AZURE_SUBSCRIPTION_ID` | Azure subscription ID | `12345678-1234-1234-1234-123456789012` |
+| `RESOURCE_GROUP_NAME` | Resource group containing DNS zones | `my-dns-rg` |
+| `AZURE_KEY_VAULT_URL` | Key Vault URL for certificate storage | `https://my-vault.vault.azure.net/` |
+| `AZURE_CLIENT_ID` | Service Principal client ID | `87654321-4321-4321-4321-210987654321` |
+| `AZURE_CLIENT_SECRET` | Service Principal client secret | `your-secret-key` |
+| `AZURE_TENANT_ID` | Azure tenant ID | `11111111-2222-3333-4444-555555555555` |
+
+### Generate Environment Template
+
+Use the `environment` command to generate environment variable templates:
+
+```bash
+# Generate Bash template (default)
+./azure-ssl-certificate-provisioner environment
+
+# Generate PowerShell template
+./azure-ssl-certificate-provisioner environment --shell powershell
+```
+
+**Example Bash Output:**
+```bash
+# Azure SSL Certificate Provisioner - Environment Variables
+export AZURE_SUBSCRIPTION_ID="your-azure-subscription-id"
+export RESOURCE_GROUP_NAME="your-resource-group-name"
+export AZURE_KEY_VAULT_URL="https://your-keyvault.vault.azure.net/"
+export AZURE_CLIENT_ID="your-service-principal-client-id"
+export AZURE_CLIENT_SECRET="your-service-principal-client-secret"
+export AZURE_TENANT_ID="your-azure-tenant-id"
+```
+
+## Usage
+
+### DNS Record Setup
+
+Before running the certificate provisioner, mark your DNS records with ACME metadata:
+
+```bash
+# Add metadata to enable certificate provisioning for a DNS record
+az network dns record-set a update \
+  --resource-group "my-dns-rg" \
+  --zone-name "example.com" \
+  --name "www" \
+  --metadata acme=true
+
+# For wildcard certificates, mark the zone apex
+az network dns record-set a update \
+  --resource-group "my-dns-rg" \
+  --zone-name "example.com" \
+  --name "@" \
+  --metadata acme=true
+```
+
+### Running the Certificate Provisioner
+
+#### Basic Usage
+
+```bash
+# Run with staging environment (recommended for testing)
+./azure-ssl-certificate-provisioner run \
+  --domains example.com \
+  --subscription "12345678-1234-1234-1234-123456789012" \
+  --resource-group "my-dns-rg" \
+  --staging
+
+# Run with production Let's Encrypt (for live certificates)
+./azure-ssl-certificate-provisioner run \
+  --domains example.com \
+  --subscription "12345678-1234-1234-1234-123456789012" \
+  --resource-group "my-dns-rg" \
+  --staging=false
+```
+
+#### Multiple Domains
+
+```bash
+./azure-ssl-certificate-provisioner run \
+  -d example.com \
+  -d api.example.com \
+  -d "*.staging.example.com" \
+  -s "12345678-1234-1234-1234-123456789012" \
+  -g "my-dns-rg"
+```
+
+#### Using Environment Variables
+
+```bash
+# Set environment variables
+export AZURE_SUBSCRIPTION_ID="12345678-1234-1234-1234-123456789012"
+export RESOURCE_GROUP_NAME="my-dns-rg"
+export AZURE_KEY_VAULT_URL="https://my-vault.vault.azure.net/"
+export AZURE_CLIENT_ID="87654321-4321-4321-4321-210987654321"
+export AZURE_CLIENT_SECRET="your-secret-key"
+export AZURE_TENANT_ID="11111111-2222-3333-4444-555555555555"
+
+# Run the provisioner
+./azure-ssl-certificate-provisioner run --domains example.com
+```
+
+### Command Reference
+
+#### Global Commands
+
+```bash
+# Show help
+./azure-ssl-certificate-provisioner --help
+
+# Show version and available commands
+./azure-ssl-certificate-provisioner
+```
+
+#### `run` Command
+
+Executes the SSL certificate provisioner.
+
+```bash
+./azure-ssl-certificate-provisioner run [flags]
+
+Flags:
+  -d, --domains strings         Domain(s) to search for records (required)
+  -g, --resource-group string   Azure resource group name (required)
+  -s, --subscription string     Azure subscription ID (required)
+      --staging                 Use Let's Encrypt staging environment (default: true)
+  -h, --help                    Help for run
+```
+
+#### `environment` Command
+
+Generates environment variable templates.
+
+```bash
+./azure-ssl-certificate-provisioner environment [flags]
+
+Flags:
+  -s, --shell string   Shell type for template (bash, powershell) (default: "bash")
+  -h, --help          Help for environment
+```
+
+## How It Works
+
+1. **Discovery**: Scans specified Azure DNS zones for A and CNAME records
+2. **Filtering**: Only processes records with `acme=true` metadata
+3. **Certificate Check**: Checks existing certificates in Key Vault for expiration
+4. **Renewal Logic**: Renews certificates expiring within 7 days
+5. **ACME Challenge**: Uses DNS-01 challenge with Azure DNS provider
+6. **Storage**: Stores certificates in PKCS#12 format in Azure Key Vault
+
+## Certificate Lifecycle
+
+- **New Certificates**: Generated for domains without existing certificates
+- **Renewal**: Automatic renewal for certificates expiring within 7 days
+- **Validation**: DNS-01 challenge validates domain ownership
+- **Storage**: Certificates stored as secrets in Azure Key Vault with naming pattern: `cert-domain-com`
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Authentication Errors**
+   - Verify all environment variables are set correctly
+   - Ensure Service Principal has appropriate permissions
+   - Check Azure tenant and subscription IDs
+
+2. **DNS Provider Initialization Failed**
+   - Verify Azure credentials have DNS Zone Contributor permissions
+   - Ensure the specified resource group and DNS zones exist
+   - Check network connectivity to Azure services
+
+3. **Certificate Import Failures**
+   - Verify Key Vault permissions (Certificate Officer role required)
+   - Ensure Key Vault URL is correctly formatted
+   - Check Key Vault access policies
+
+### Debug Mode
+
+For detailed logging, check the application output. The tool provides comprehensive logging for:
+- Authentication status
+- DNS zone discovery
+- Certificate expiration checks
+- ACME challenge progress
+- Certificate import results
+
+## Security Considerations
+
+- **Environment Variables**: Store sensitive values securely, never commit secrets to version control
+- **Service Principal**: Use minimal required permissions following principle of least privilege
+- **Key Vault**: Enable audit logging and access policies for certificate access
+- **Staging First**: Always test with Let's Encrypt staging before using production
+
+## Production Deployment
+
+### Recommended Setup
+
+1. **Use Azure Managed Identity** when running on Azure VMs/Container Instances
+2. **Set up monitoring** for certificate expiration and renewal failures
+3. **Configure alerts** for failed certificate provisioning
+4. **Schedule regular runs** via cron jobs or Azure Logic Apps
+5. **Use production Let's Encrypt** only after successful staging tests
+
+### Example Cron Job
+
+```bash
+# Run certificate provisioner daily at 2 AM
+0 2 * * * /path/to/azure-ssl-certificate-provisioner run --domains example.com --staging=false
+```
+
+## References
+
+- **Let's Encrypt Staging**: [https://acme-staging-v02.api.letsencrypt.org/directory](https://acme-staging-v02.api.letsencrypt.org/directory)
+- **Let's Encrypt Production**: [https://acme-v02.api.letsencrypt.org/directory](https://acme-v02.api.letsencrypt.org/directory)
+- **Azure DNS Documentation**: [Azure DNS Overview](https://docs.microsoft.com/en-us/azure/dns/)
+- **Azure Key Vault Documentation**: [Key Vault Certificates](https://docs.microsoft.com/en-us/azure/key-vault/certificates/)
+- **Lego ACME Client**: [go-acme/lego](https://github.com/go-acme/lego)
+
+---
+
+## License
+
+This project is licensed under the MIT License. The code was primarily generated using AI assistance. Use at your own risk.
