@@ -51,7 +51,7 @@ func certNameForFQDN(fqdn string) string {
 	return "cert-" + strings.ReplaceAll(fqdn, ".", "-")
 }
 
-func handleFQDN(ctx context.Context, fqdn string, acmeClient *lego.Client, kvCertClient *azcertificates.Client) error {
+func handleFQDN(ctx context.Context, fqdn string, acmeClient *lego.Client, kvCertClient *azcertificates.Client) {
 	certName := certNameForFQDN(fqdn)
 	log.Printf("Checking %s...", fqdn)
 
@@ -67,65 +67,48 @@ func handleFQDN(ctx context.Context, fqdn string, acmeClient *lego.Client, kvCer
 
 	if daysLeft > 7 {
 		log.Printf("Skipping renewal; certificate still valid")
-		return nil
+		return
+	}
+
+	// Generate a new private key for this certificate request
+	certPrivateKey, err := certcrypto.GeneratePrivateKey(certcrypto.RSA2048)
+	if err != nil {
+		log.Printf("ERROR: failed to generate private key for %s: %v", fqdn, err)
+		return
 	}
 
 	legoReq := certificate.ObtainRequest{
-		Domains: []string{fqdn},
-		Bundle:  true,
+		Domains:    []string{fqdn},
+		Bundle:     true,
+		PrivateKey: certPrivateKey,
 	}
 
 	legoCert, err := acmeClient.Certificate.Obtain(legoReq)
 	if err != nil {
 		log.Printf("ERROR: failed to obtain certificate for %s: %v", fqdn, err)
-		return nil
+		return
 	}
 
+	// Parse the certificate from the bundle to get expiration info
 	block, _ := pem.Decode(legoCert.Certificate)
 	if block == nil {
-		log.Printf("ERROR: unable to parse PEM for %s", fqdn)
-		return nil
+		log.Printf("ERROR: unable to parse certificate PEM for %s", fqdn)
+		return
 	}
 
 	cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
 		log.Printf("ERROR: unable to parse certificate for %s: %v", fqdn, err)
-		return nil
+		return
 	}
 
 	log.Printf("Obtained new certificate expiring on %s", cert.NotAfter.Format(time.RFC3339))
 
-	// Parse the private key from PEM to ensure it's in the correct format
-	privKeyBlock, _ := pem.Decode(legoCert.PrivateKey)
-	if privKeyBlock == nil {
-		log.Printf("ERROR: unable to parse private key PEM for %s", fqdn)
-		return nil
-	}
-
-	// Parse the private key to get the proper Go crypto type
-	var privateKey crypto.PrivateKey
-	switch privKeyBlock.Type {
-	case "PRIVATE KEY":
-		privateKey, err = x509.ParsePKCS8PrivateKey(privKeyBlock.Bytes)
-	case "RSA PRIVATE KEY":
-		privateKey, err = x509.ParsePKCS1PrivateKey(privKeyBlock.Bytes)
-	case "EC PRIVATE KEY":
-		privateKey, err = x509.ParseECPrivateKey(privKeyBlock.Bytes)
-	default:
-		log.Printf("ERROR: unsupported private key type %s for %s", privKeyBlock.Type, fqdn)
-		return nil
-	}
-
+	// Use modern PKCS12 encoding with the original private key (no PEM decoding needed)
+	pfxData, err := pkcs12.Modern.Encode(certPrivateKey, cert, nil, "")
 	if err != nil {
-		log.Printf("ERROR: unable to parse private key for %s: %v", fqdn, err)
-		return nil
-	}
-
-	// Use modern PKCS12 encoding for better security
-	pfxData, err := pkcs12.Modern.Encode(privateKey, cert, nil, "")
-	if err != nil {
-		log.Printf("      ERROR: PKCS#12 encoding failed for %s: %v", fqdn, err)
-		return nil
+		log.Printf("ERROR: PKCS#12 encoding failed for %s: %v", fqdn, err)
+		return
 	}
 
 	// Azure Key Vault expects base64-encoded certificate data
@@ -135,11 +118,10 @@ func handleFQDN(ctx context.Context, fqdn string, acmeClient *lego.Client, kvCer
 	}, nil)
 	if err != nil {
 		log.Printf("ERROR: failed to import certificate for %s into Key Vault: %v", fqdn, err)
-		return nil
+		return
 	}
 
 	log.Printf("Imported certificate %s into Key Vault", certName)
-	return nil
 }
 
 func main() {
@@ -268,9 +250,7 @@ func main() {
 					continue
 				}
 				log.Printf("Found record %s (%s).", fqdn, rsType)
-				if err := handleFQDN(ctx, fqdn, acmeClient, kvCertClient); err != nil {
-					log.Printf("failed to issue, renew or save a certificate for the FQDN %s: %v", fqdn, err)
-				}
+				handleFQDN(ctx, fqdn, acmeClient, kvCertClient)
 			}
 		}
 	}
