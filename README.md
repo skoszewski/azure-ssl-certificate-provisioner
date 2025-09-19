@@ -45,6 +45,7 @@ The tool requires the following environment variables:
 
 | Variable | Description | Example |
 |----------|-------------|---------|
+| `ACME_EMAIL` | Email address for ACME account registration | `your-email@example.com` |
 | `AZURE_SUBSCRIPTION_ID` | Azure subscription ID | `12345678-1234-1234-1234-123456789012` |
 | `RESOURCE_GROUP_NAME` | Resource group containing DNS zones | `my-dns-rg` |
 | `AZURE_KEY_VAULT_URL` | Key Vault URL for certificate storage | `https://my-vault.vault.azure.net/` |
@@ -67,6 +68,7 @@ Use the `environment` command to generate environment variable templates:
 **Example Bash Output:**
 ```bash
 # Azure SSL Certificate Provisioner - Environment Variables
+export ACME_EMAIL="your-email@example.com"
 export AZURE_SUBSCRIPTION_ID="your-azure-subscription-id"
 export RESOURCE_GROUP_NAME="your-resource-group-name"
 export AZURE_KEY_VAULT_URL="https://your-keyvault.vault.azure.net/"
@@ -105,6 +107,7 @@ az network dns record-set a update \
 # Run with staging environment (recommended for testing)
 ./azure-ssl-certificate-provisioner run \
   --domains example.com \
+  --email "your-email@example.com" \
   --subscription "12345678-1234-1234-1234-123456789012" \
   --resource-group "my-dns-rg" \
   --staging
@@ -112,6 +115,7 @@ az network dns record-set a update \
 # Run with production Let's Encrypt (for live certificates)
 ./azure-ssl-certificate-provisioner run \
   --domains example.com \
+  --email "your-email@example.com" \
   --subscription "12345678-1234-1234-1234-123456789012" \
   --resource-group "my-dns-rg" \
   --staging=false
@@ -124,6 +128,7 @@ az network dns record-set a update \
   -d example.com \
   -d api.example.com \
   -d "*.staging.example.com" \
+  -e "your-email@example.com" \
   -s "12345678-1234-1234-1234-123456789012" \
   -g "my-dns-rg"
 ```
@@ -132,6 +137,7 @@ az network dns record-set a update \
 
 ```bash
 # Set environment variables
+export ACME_EMAIL="your-email@example.com"
 export AZURE_SUBSCRIPTION_ID="12345678-1234-1234-1234-123456789012"
 export RESOURCE_GROUP_NAME="my-dns-rg"
 export AZURE_KEY_VAULT_URL="https://my-vault.vault.azure.net/"
@@ -164,6 +170,7 @@ Executes the SSL certificate provisioner.
 
 Flags:
   -d, --domains strings         Domain(s) to search for records (required)
+  -e, --email string            Email address for ACME account registration (required)
   -t, --expire-threshold int    Certificate expiration threshold in days (default: 7)
   -g, --resource-group string   Azure resource group name (required)
   -s, --subscription string     Azure subscription ID (required)

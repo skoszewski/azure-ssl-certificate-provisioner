@@ -168,6 +168,9 @@ func generateBashTemplate() {
 	fmt.Println("# Azure SSL Certificate Provisioner - Environment Variables")
 	fmt.Println("# Copy and modify these values for your environment")
 	fmt.Println()
+	fmt.Println("# ACME account email for Let's Encrypt registration")
+	fmt.Println("export ACME_EMAIL=\"your-email@example.com\"")
+	fmt.Println()
 	fmt.Println("# Azure subscription and resource group")
 	fmt.Println("export AZURE_SUBSCRIPTION_ID=\"your-azure-subscription-id\"")
 	fmt.Println("export RESOURCE_GROUP_NAME=\"your-resource-group-name\"")
@@ -187,6 +190,9 @@ func generateBashTemplate() {
 func generatePowerShellTemplate() {
 	fmt.Println("# Azure SSL Certificate Provisioner - Environment Variables")
 	fmt.Println("# Copy and modify these values for your environment")
+	fmt.Println()
+	fmt.Println("# ACME account email for Let's Encrypt registration")
+	fmt.Println("$env:ACME_EMAIL = \"your-email@example.com\"")
 	fmt.Println()
 	fmt.Println("# Azure subscription and resource group")
 	fmt.Println("$env:AZURE_SUBSCRIPTION_ID = \"your-azure-subscription-id\"")
@@ -229,6 +235,7 @@ storing them in Azure Key Vault.`,
 	runCmd.Flags().StringP("resource-group", "g", "", "Azure resource group name")
 	runCmd.Flags().Bool("staging", true, "Use Let's Encrypt staging environment")
 	runCmd.Flags().IntP("expire-threshold", "t", 7, "Certificate expiration threshold in days")
+	runCmd.Flags().StringP("email", "e", "", "Email address for ACME account registration (required)")
 
 	// Create environment subcommand
 	var envCmd = &cobra.Command{
@@ -248,6 +255,7 @@ storing them in Azure Key Vault.`,
 	viper.BindPFlag("resource-group", runCmd.Flags().Lookup("resource-group"))
 	viper.BindPFlag("staging", runCmd.Flags().Lookup("staging"))
 	viper.BindPFlag("expire-threshold", runCmd.Flags().Lookup("expire-threshold"))
+	viper.BindPFlag("email", runCmd.Flags().Lookup("email"))
 
 	// Bind flags for environment command
 	viper.BindPFlag("shell", envCmd.Flags().Lookup("shell"))
@@ -256,6 +264,7 @@ storing them in Azure Key Vault.`,
 	viper.BindEnv("subscription", "AZURE_SUBSCRIPTION_ID")
 	viper.BindEnv("resource-group", "RESOURCE_GROUP_NAME")
 	viper.BindEnv("key-vault-url", "AZURE_KEY_VAULT_URL")
+	viper.BindEnv("email", "ACME_EMAIL")
 
 	// Azure authentication environment variables for lego DNS provider
 	viper.BindEnv("azure-client-id", "AZURE_CLIENT_ID")
@@ -269,6 +278,7 @@ storing them in Azure Key Vault.`,
 	runCmd.MarkFlagRequired("domains")
 	runCmd.MarkFlagRequired("subscription")
 	runCmd.MarkFlagRequired("resource-group")
+	runCmd.MarkFlagRequired("email")
 
 	// Add subcommands to root command
 	rootCmd.AddCommand(runCmd)
@@ -288,6 +298,7 @@ func runCertificateProvisioner() {
 	resourceGroupName := viper.GetString("resource-group")
 	staging := viper.GetBool("staging")
 	expireThreshold := viper.GetInt("expire-threshold")
+	email := viper.GetString("email")
 
 	if len(domains) == 0 {
 		log.Fatalf("No domains were specified. Use -d flag at least once.")
@@ -299,6 +310,10 @@ func runCertificateProvisioner() {
 
 	if resourceGroupName == "" {
 		log.Fatalf("Resource Group Name not specified.")
+	}
+
+	if email == "" {
+		log.Fatalf("Email address not specified.")
 	}
 
 	// Validate all required environment variables
@@ -329,7 +344,7 @@ func runCertificateProvisioner() {
 		log.Fatalf("failed to generate private key: %v", err)
 	}
 
-	user := &AcmeUser{Email: "slawek@koszewscy.waw.pl", key: privateKey}
+	user := &AcmeUser{Email: email, key: privateKey}
 	config := lego.NewConfig(user)
 	if config == nil {
 		log.Fatalf("failed to create ACME config")
