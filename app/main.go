@@ -95,8 +95,34 @@ func handleFQDN(ctx context.Context, fqdn string, acmeClient *lego.Client, kvCer
 
 	log.Printf("Obtained new certificate expiring on %s", cert.NotAfter.Format(time.RFC3339))
 
+	// Parse the private key from PEM to ensure it's in the correct format
+	privKeyBlock, _ := pem.Decode(legoCert.PrivateKey)
+	if privKeyBlock == nil {
+		log.Printf("ERROR: unable to parse private key PEM for %s", fqdn)
+		return nil
+	}
+
+	// Parse the private key to get the proper Go crypto type
+	var privateKey crypto.PrivateKey
+	switch privKeyBlock.Type {
+	case "PRIVATE KEY":
+		privateKey, err = x509.ParsePKCS8PrivateKey(privKeyBlock.Bytes)
+	case "RSA PRIVATE KEY":
+		privateKey, err = x509.ParsePKCS1PrivateKey(privKeyBlock.Bytes)
+	case "EC PRIVATE KEY":
+		privateKey, err = x509.ParseECPrivateKey(privKeyBlock.Bytes)
+	default:
+		log.Printf("ERROR: unsupported private key type %s for %s", privKeyBlock.Type, fqdn)
+		return nil
+	}
+
+	if err != nil {
+		log.Printf("ERROR: unable to parse private key for %s: %v", fqdn, err)
+		return nil
+	}
+
 	// Use modern PKCS12 encoding for better security
-	pfxData, err := pkcs12.Modern.Encode(legoCert.PrivateKey, cert, nil, "")
+	pfxData, err := pkcs12.Modern.Encode(privateKey, cert, nil, "")
 	if err != nil {
 		log.Printf("      ERROR: PKCS#12 encoding failed for %s: %v", fqdn, err)
 		return nil
@@ -159,7 +185,7 @@ func main() {
 
 	vaultURL := os.Getenv("AZURE_KEY_VAULT_URL")
 	if vaultURL == "" {
-		log.Fatalf("KEY_VAULT_URL environment variable not set")
+		log.Fatalf("AZURE_KEY_VAULT_URL environment variable not set")
 	}
 
 	kvCertClient, err := azcertificates.NewClient(vaultURL, cred, nil)
@@ -177,6 +203,9 @@ func main() {
 	if config == nil {
 		log.Fatalf("failed to create ACME config")
 	}
+
+	// Use Let's Encrypt staging environment for testing
+	config.CADirURL = "https://acme-staging-v02.api.letsencrypt.org/directory"
 
 	acmeClient, err := lego.NewClient(config)
 	if err != nil {
