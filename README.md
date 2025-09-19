@@ -39,6 +39,29 @@ go build -o azure-ssl-certificate-provisioner .
 
 ## Configuration
 
+### Service Principal Setup
+
+Before using the certificate provisioner, you need to create an Azure service principal with the necessary permissions. You can use the built-in command to create one:
+
+```bash
+# Create service principal with DNS Zone Contributor role
+./azure-ssl-certificate-provisioner create-service-principal \
+  --name "SSL Certificate Provisioner" \
+  --assign-dns-role \
+  --resource-group "your-dns-resource-group"
+```
+
+This command will:
+1. Create an Azure AD application
+2. Create a service principal for the application  
+3. Generate a client secret
+4. Optionally assign DNS Zone Contributor role to the specified resource group
+5. Output environment variables in your preferred shell format
+
+**Required Azure Permissions:**
+- **Application Developer** or **Global Administrator** role to create Azure AD applications
+- **Owner** or **User Access Administrator** role on the target resource group (for DNS role assignment)
+
 ### Environment Variables
 
 The tool requires the following environment variables:
@@ -188,6 +211,61 @@ Generates environment variable templates.
 Flags:
   -s, --shell string   Shell type for template (bash, powershell) (default: "bash")
   -h, --help          Help for environment
+```
+
+#### `create-service-principal` Command
+
+Creates an Azure AD application and service principal for SSL certificate provisioning.
+
+Note: You must specify both the tenant ID and subscription ID to ensure the service principal
+is created in the correct Azure environment.
+
+```bash
+./azure-ssl-certificate-provisioner create-service-principal [flags]
+
+Flags:
+  -n, --name string             Display name for the Azure AD application (required)
+  -t, --tenant-id string        Azure tenant ID (required)
+  -s, --subscription-id string  Azure subscription ID (required)
+      --assign-dns-role         Assign DNS Zone Contributor role to the specified resource group
+  -g, --resource-group string   Resource group name for DNS Zone Contributor role assignment
+      --shell string            Shell type for output template (bash, powershell) (default: "bash")
+  -h, --help                    Help for create-service-principal
+```
+
+**Usage Examples:**
+
+```bash
+# Create service principal without role assignment
+./azure-ssl-certificate-provisioner create-service-principal \
+  --name "SSL Certificate Provisioner"
+
+# Create service principal and assign DNS Zone Contributor role
+# Create a service principal for Certificate Provisioner
+azure-ssl-certificate-provisioner create-service-principal \
+  --name "certificate-provisioner-app" \
+  --tenant-id "12345678-1234-1234-1234-123456789012" \
+  --subscription-id "87654321-4321-4321-4321-210987654321"
+
+# Create a service principal and assign DNS Zone Contributor role
+azure-ssl-certificate-provisioner create-service-principal \
+  --name "certificate-provisioner-app" \
+  --tenant-id "12345678-1234-1234-1234-123456789012" \
+  --subscription-id "87654321-4321-4321-4321-210987654321" \
+  --assign-dns-role \
+  --resource-group "dns-rg"
+
+# Generate PowerShell template
+azure-ssl-certificate-provisioner create-service-principal \
+  --name "certificate-provisioner-app" \
+  --tenant-id "12345678-1234-1234-1234-123456789012" \
+  --subscription-id "87654321-4321-4321-4321-210987654321" \
+  --shell "powershell"
+
+# Generate PowerShell output format
+./azure-ssl-certificate-provisioner create-service-principal \
+  --name "SSL Certificate Provisioner" \
+  --shell powershell
 ```
 
 ## How It Works
