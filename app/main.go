@@ -43,23 +43,15 @@ func (u *AcmeUser) GetPrivateKey() crypto.PrivateKey {
 	return u.key
 }
 
-func daysUntilExpiry(expiry time.Time) int {
-	return int(time.Until(expiry).Hours() / 24)
-}
-
-func certNameForFQDN(fqdn string) string {
-	return "cert-" + strings.ReplaceAll(fqdn, ".", "-")
-}
-
 func handleFQDN(ctx context.Context, fqdn string, acmeClient *lego.Client, kvCertClient *azcertificates.Client) {
-	certName := certNameForFQDN(fqdn)
+	certName := "cert-" + strings.ReplaceAll(fqdn, ".", "-")
 	log.Printf("Checking %s...", fqdn)
 
 	resp, err := kvCertClient.GetCertificate(ctx, certName, "", nil)
 	daysLeft := 0
 	if err == nil && resp.Attributes != nil && resp.Attributes.Expires != nil {
 		expiry := *resp.Attributes.Expires
-		daysLeft = daysUntilExpiry(expiry)
+		daysLeft = int(time.Until(expiry).Hours() / 24)
 		log.Printf("Existing certificate expires on %s (%d days left)", expiry.Format(time.RFC3339), daysLeft)
 	} else {
 		log.Printf("Certificate does not exist in Key Vault")
