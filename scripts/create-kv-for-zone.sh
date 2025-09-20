@@ -3,9 +3,11 @@ set -eo pipefail
 
 # Defaults
 MULTIPLE_KV=""
-LOCATION="$(az group show --name "$AZURE_RESOURCE_GROUP" --query location -o tsv)"
+LOCATION=""
+SPN_ID="${SPN_ID:-}"
 
-while getopts "g:z:s:mp:l:" opt; do
+# Parse command line arguments
+while getopts "hg:z:s:mp:l:" opt; do
     case $opt in
         g)
             AZURE_RESOURCE_GROUP="$OPTARG"
@@ -20,18 +22,21 @@ while getopts "g:z:s:mp:l:" opt; do
             MULTIPLE_KV=1 # Enable creation of a Key Vault for each DNS zone
             ;;
         p)
-            AZURE_KEY_VAULT_POLICY="$OPTARG"
+            SPN_ID="$OPTARG"
             ;;
         l)
             LOCATION="$OPTARG"
             ;;
-        *)
-            echo "Usage: $0 -g resource_group -z dns_zone -s subscription_id" >&2
+        *|h)
+            echo "Usage: $0 -s subscription_id -m -g resource_group -z dns_zone -l location -p service_principal_id" >&2
             echo "       Alternatively, set AZURE_RESOURCE_GROUP, AZURE_DNS_ZONE, and AZURE_SUBSCRIPTION_ID environment variables." >&2
             exit 1
             ;;
     esac
 done
+
+# Set subscription ID from Azure CLI if not provided nor set in environment
+AZURE_SUBSCRIPTION_ID="${AZURE_SUBSCRIPTION_ID:-$(az account show --query id -o tsv)}"
 
 # Check required environment variables
 REQUIRED_VARS=(
@@ -45,6 +50,8 @@ for VAR in "${REQUIRED_VARS[@]}"; do
         exit 1
     fi
 done
+
+LOCATION="${LOCATION:-$(az group show --subscription $AZURE_SUBSCRIPTION_ID --name "$AZURE_RESOURCE_GROUP" --query "location" -o tsv)}"
 
 # Check if the resource group exists
 if ! az group show --subscription $AZURE_SUBSCRIPTION_ID --name "$AZURE_RESOURCE_GROUP" &> /dev/null; then
@@ -87,5 +94,3 @@ else
         fi
     done
 fi
-
-# Assign RBAC role to the defined Service Principal, if AZURE_* variables are set
