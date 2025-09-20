@@ -13,9 +13,11 @@ The code has been reviewed and is available under the MIT license.
 - **Automatic SSL Certificate Provisioning** - Obtains certificates from Let's Encrypt using DNS-01 challenges
 - **Metadata-Driven Discovery** - Only processes DNS records marked with `acme=true` metadata
 - **Azure Integration** - Works with Azure DNS zones and stores certificates in Azure Key Vault
-- **Certificate Renewal** - Automatically renews certificates expiring within 7 days
+- **Certificate Renewal** - Automatically renews certificates expiring within configurable threshold (default: 7 days)
 - **Staging Support** - Built-in support for Let's Encrypt staging environment for testing
 - **Template Generation** - Generate environment variable templates for easy setup
+- **Lego Compatibility** - Full compatibility with [go-acme/lego](https://github.com/go-acme/lego) account storage format
+- **Service Principal Management** - Built-in Azure AD application and service principal creation with role assignments
 
 ## Prerequisites
 
@@ -38,6 +40,13 @@ go build -o azure-ssl-certificate-provisioner .
 ```
 
 ## Configuration
+
+### ACME Account Storage
+
+The tool uses **lego-compatible account storage** in `~/.lego/accounts/`. This means:
+- **Existing lego users**: Your accounts work immediately, no migration needed
+- **New users**: Accounts created here work with the original lego command
+- **Seamless switching**: Use either tool with the same accounts
 
 ### Service Principal Setup
 
@@ -268,21 +277,54 @@ azure-ssl-certificate-provisioner create-service-principal \
   --shell powershell
 ```
 
+## Lego Compatibility
+
+This tool is **fully compatible** with the [go-acme/lego](https://github.com/go-acme/lego) ACME client. This means:
+
+### **Account Interoperability**
+- **Reuse existing lego accounts**: If you already have lego accounts, they work directly with azure-ssl-certificate-provisioner
+- **Cross-tool compatibility**: Accounts created by azure-ssl-certificate-provisioner can be used by the lego command
+- **Standard format**: Uses the same directory structure and file formats as lego
+
+### **Directory Structure**
+Both tools use the same account storage format:
+```
+~/.lego/accounts/
+├── acme-v02.api.letsencrypt.org_443/              # Production Let's Encrypt
+│   └── your-email@example.com/
+│       ├── account.json                           # Account registration data
+│       └── keys/
+│           └── your-email@example.com.key         # RSA private key (PEM)
+└── acme-staging-v02.api.letsencrypt.org_443/      # Staging Let's Encrypt  
+    └── your-email@example.com/
+        ├── account.json
+        └── keys/
+            └── your-email@example.com.key
+```
+
+### **Migration Benefits**
+- **From lego**: Works immediately with existing lego accounts (no migration needed)
+- **To lego**: Switch between tools seamlessly for different use cases
+- **Backup compatibility**: Standard format makes backups portable between tools
+
 ## How It Works
 
 1. **Discovery**: Scans specified Azure DNS zones for A and CNAME records
 2. **Filtering**: Only processes records with `acme=true` metadata
-3. **Certificate Check**: Checks existing certificates in Key Vault for expiration
-4. **Renewal Logic**: Renews certificates expiring within the specified threshold (default: 7 days)
-5. **ACME Challenge**: Uses DNS-01 challenge with Azure DNS provider
-6. **Storage**: Stores certificates in PKCS#12 format in Azure Key Vault
+3. **Account Management**: Uses lego-compatible account storage in `~/.lego/accounts/`
+4. **Certificate Check**: Checks existing certificates in Key Vault for expiration
+5. **Renewal Logic**: Renews certificates expiring within the specified threshold (default: 7 days)
+6. **ACME Challenge**: Uses DNS-01 challenge with Azure DNS provider
+7. **Storage**: Stores certificates in PKCS#12 format in Azure Key Vault
 
 ## Certificate Lifecycle
 
+- **Account Management**: Uses lego-compatible ACME account storage in `~/.lego/accounts/`
 - **New Certificates**: Generated for domains without existing certificates
 - **Renewal**: Automatic renewal for certificates expiring within the specified threshold (default: 7 days)
-- **Validation**: DNS-01 challenge validates domain ownership
+- **Validation**: DNS-01 challenge validates domain ownership using Azure DNS
 - **Storage**: Certificates stored as secrets in Azure Key Vault with naming pattern: `cert-domain-com`
+- **Cross-tool compatibility**: ACME accounts work with both azure-ssl-certificate-provisioner and lego
 
 ## Troubleshooting
 
@@ -307,6 +349,12 @@ azure-ssl-certificate-provisioner create-service-principal \
    - Check the expiration threshold setting (default: 7 days)
    - Use `--expire-threshold` to adjust renewal timing
    - Verify certificate expiration dates in Key Vault logs
+
+5. **Account Compatibility Issues**
+   - Existing lego accounts should work immediately
+   - Check account permissions in `~/.lego/accounts/` directory (should be 0600)
+   - Verify email matches between different tool invocations
+   - For staging vs production, accounts are stored in separate directories
 
 ### Debug Mode
 
@@ -341,6 +389,42 @@ For detailed logging, check the application output. The tool provides comprehens
 0 2 * * * /path/to/azure-ssl-certificate-provisioner run --domains example.com --staging=false
 ```
 
+## Lego Integration Examples
+
+### Using Existing Lego Accounts
+
+If you already have lego accounts, they work immediately:
+
+```bash
+# Check existing lego accounts
+ls -la ~/.lego/accounts/
+
+# Use with azure-ssl-certificate-provisioner (same email as lego account)
+./azure-ssl-certificate-provisioner run \
+  --domains example.com \
+  --email "same-email@used-with-lego.com" \
+  --subscription "12345678-1234-1234-1234-123456789012" \
+  --resource-group "my-dns-rg"
+```
+
+### Sharing Accounts Between Tools
+
+Create account with azure-ssl-certificate-provisioner, then use with lego:
+
+```bash
+# 1. Create account with azure-ssl-certificate-provisioner
+./azure-ssl-certificate-provisioner run --domains example.com --email test@example.com --staging
+
+# 2. Use the same account with lego (install lego separately)
+lego --email test@example.com --dns azure --domains example.com --server https://acme-staging-v02.api.letsencrypt.org/directory run
+
+# 3. Both tools share the same account in ~/.lego/accounts/
+```
+
+### Migration from Legacy Storage
+
+The tool automatically uses the new lego-compatible format. Previous single-file storage is deprecated but existing functionality is preserved.
+
 ## References
 
 - **Let's Encrypt Staging**: [https://acme-staging-v02.api.letsencrypt.org/directory](https://acme-staging-v02.api.letsencrypt.org/directory)
@@ -348,6 +432,7 @@ For detailed logging, check the application output. The tool provides comprehens
 - **Azure DNS Documentation**: [Azure DNS Overview](https://docs.microsoft.com/en-us/azure/dns/)
 - **Azure Key Vault Documentation**: [Key Vault Certificates](https://docs.microsoft.com/en-us/azure/key-vault/certificates/)
 - **Lego ACME Client**: [go-acme/lego](https://github.com/go-acme/lego)
+- **Lego Documentation**: [Lego User Guide](https://go-acme.github.io/lego/)
 
 ---
 
