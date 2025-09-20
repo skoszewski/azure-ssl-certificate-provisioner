@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -eo pipefail
 
-# Defaults
-SPN_ID="${SPN_ID:-}"
-
 # Parse command line arguments
-while getopts "hg:s:p:" opt; do
+while getopts "hg:s:p:k:" opt; do
     case $opt in
+        k)
+            KEY_VAULT_NAME="$OPTARG"
+            ;;
         g)
             AZURE_RESOURCE_GROUP="$OPTARG"
             ;;
@@ -17,8 +17,8 @@ while getopts "hg:s:p:" opt; do
             SPN_ID="$OPTARG"
             ;;
         *|h)
-            echo "Usage: $0 [ -s subscription_id ] -g resource_group -p service_principal_id" >&2
-            echo "       Alternatively, set AZURE_SUBSCRIPTION_ID, AZURE_RESOURCE_GROUP, and SPN_ID environment variables." >&2
+            echo "Usage: $0 [ -s subscription_id ] -g resource_group -p service_principal_id [ -k key_vault_name ]" >&2
+            echo "       Alternatively, set AZURE_SUBSCRIPTION_ID, AZURE_RESOURCE_GROUP, SPN_ID, and KEY_VAULT_NAME environment variables." >&2
             exit 1
             ;;
     esac
@@ -41,21 +41,27 @@ for VAR in "${REQUIRED_VARS[@]}"; do
 done
 
 # Assign RBAC role to the defined Service Principal, if AZURE_* variables are set
-if [ -n "$SPN_ID"] || [ -n "$AZURE_CLIENT_ID" ]; then
+if [ -n "$SPN_ID" ] || [ -n "$AZURE_CLIENT_ID" ]; then
     if [ -z "$SPN_ID" ]; then
         SPN_ID="$AZURE_CLIENT_ID"
     fi
 
-    echo "Assigning 'Key Vault Certificates Officer' role to Service Principal '$SPN_ID' in resource group '$AZURE_RESOURCE_GROUP'..."
+    # Create key vault name from resource group name if not provided
+    if [ -z "$KEY_VAULT_NAME" ]; then
+        KEY_VAULT_NAME="kv-${AZURE_RESOURCE_GROUP}"
+    fi
+
+    echo "Assigning 'Key Vault Certificates Officer' role to Service Principal '$SPN_ID' on Key Vault '$KEY_VAULT_NAME'..."
     ASSIGNMENT_ID=$(az role assignment create \
         --subscription $AZURE_SUBSCRIPTION_ID \
         --assignee "$SPN_ID" \
         --role "Key Vault Certificates Officer" \
-        --scope "/subscriptions/$AZURE_SUBSCRIPTION_ID/resourceGroups/$AZURE_RESOURCE_GROUP" \
+        --scope "/subscriptions/$AZURE_SUBSCRIPTION_ID/resourceGroups/$AZURE_RESOURCE_GROUP/providers/Microsoft.KeyVault/vaults/$KEY_VAULT_NAME" \
         --query id -o tsv
     )
     echo "Role assignment completed."
     echo "Role Assignment ID: $ASSIGNMENT_ID"
 else
     echo "Service Principal ID not provided. Skipping RBAC role assignment." >&2
+    exit 1
 fi
