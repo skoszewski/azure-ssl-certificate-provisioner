@@ -11,3 +11,6 @@ prototypes
 # Ignore binary files
 azure-ssl-certificate-provisioner
 azure-ssl-certificate-provisioner.exe
+
+# Ignore LEGO files
+**/.lego
