@@ -3,10 +3,9 @@ set -eo pipefail
 
 # Defaults
 LOCATION=""
-SPN_ID="${SPN_ID:-}"
 
 # Parse command line arguments
-while getopts "hg:z:s:p:l:" opt; do
+while getopts "hg:z:s:l:" opt; do
     case $opt in
         g)
             AZURE_RESOURCE_GROUP="$OPTARG"
@@ -17,14 +16,11 @@ while getopts "hg:z:s:p:l:" opt; do
         s)
             AZURE_SUBSCRIPTION_ID="$OPTARG"
             ;;
-        p)
-            SPN_ID="$OPTARG"
-            ;;
         l)
             LOCATION="$OPTARG"
             ;;
         *|h)
-            echo "Usage: $0 -s subscription_id -g resource_group -z dns_zone -l location -p service_principal_id" >&2
+            echo "Usage: $0 -s subscription_id -g resource_group -z dns_zone -l location" >&2
             echo "       Alternatively, set AZURE_RESOURCE_GROUP, AZURE_DNS_ZONE, and AZURE_SUBSCRIPTION_ID environment variables." >&2
             exit 1
             ;;
