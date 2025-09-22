@@ -48,7 +48,7 @@ storing them in Azure Key Vault.`,
 // setupFlagBindings configures flag bindings to viper
 func (c *Commands) setupFlagBindings(runCmd, createSPCmd *cobra.Command) {
 	// Bind flags to viper for run command
-	viper.BindPFlag("domains", runCmd.Flags().Lookup("domains"))
+	viper.BindPFlag("zones", runCmd.Flags().Lookup("zones"))
 	viper.BindPFlag("subscription", runCmd.Flags().Lookup("subscription"))
 	viper.BindPFlag("resource-group", runCmd.Flags().Lookup("resource-group"))
 	viper.BindPFlag("staging", runCmd.Flags().Lookup("staging"))

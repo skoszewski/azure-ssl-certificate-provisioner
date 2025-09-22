@@ -146,30 +146,29 @@ az network dns record-set a update \
 #### Basic Usage
 
 ```bash
-# Run with staging environment (recommended for testing)
+# Run with staging environment (recommended for testing) - scan all zones
 ./azure-ssl-certificate-provisioner run \
-  --domains example.com \
   --email "your-email@example.com" \
   --subscription "12345678-1234-1234-1234-123456789012" \
   --resource-group "my-dns-rg" \
   --staging
 
-# Run with production Let's Encrypt (for live certificates)
+# Run with production Let's Encrypt (for live certificates) - specific zone
 ./azure-ssl-certificate-provisioner run \
-  --domains example.com \
+  --zones example.com \
   --email "your-email@example.com" \
   --subscription "12345678-1234-1234-1234-123456789012" \
   --resource-group "my-dns-rg" \
   --staging=false
 ```
 
-#### Multiple Domains
+#### Multiple Zones
 
 ```bash
 ./azure-ssl-certificate-provisioner run \
-  -d example.com \
-  -d api.example.com \
-  -d "*.staging.example.com" \
+  -z example.com \
+  -z api.example.com \
+  -z "staging.example.com" \
   -e "your-email@example.com" \
   -s "12345678-1234-1234-1234-123456789012" \
   -g "my-dns-rg"
@@ -187,8 +186,11 @@ export AZURE_CLIENT_ID="87654321-4321-4321-4321-210987654321"
 export AZURE_CLIENT_SECRET="your-secret-key"
 export AZURE_TENANT_ID="11111111-2222-3333-4444-555555555555"
 
-# Run the provisioner
-./azure-ssl-certificate-provisioner run --domains example.com
+# Run the provisioner (scan all zones in resource group)
+./azure-ssl-certificate-provisioner run
+
+# Or run for specific zones
+./azure-ssl-certificate-provisioner run --zones example.com
 ```
 
 ### Command Reference
@@ -211,7 +213,7 @@ Executes the SSL certificate provisioner.
 ./azure-ssl-certificate-provisioner run [flags]
 
 Flags:
-  -d, --domains strings         Domain(s) to search for records (required)
+  -z, --zones strings           DNS zone(s) to search for records. If omitted, all zones in the resource group will be scanned
   -e, --email string            Email address for ACME account registration (required)
   -t, --expire-threshold int    Certificate expiration threshold in days (default: 7)
   -g, --resource-group string   Azure resource group name (required)
@@ -395,8 +397,8 @@ For detailed logging, check the application output. The tool provides comprehens
 ### Example Cron Job
 
 ```bash
-# Run certificate provisioner daily at 2 AM
-0 2 * * * /path/to/azure-ssl-certificate-provisioner run --domains example.com --staging=false
+# Run certificate provisioner daily at 2 AM (scan all zones)
+0 2 * * * /path/to/azure-ssl-certificate-provisioner run --staging=false
 ```
 
 ## Lego Integration Examples
@@ -411,7 +413,7 @@ ls -la ~/.lego/accounts/
 
 # Use with azure-ssl-certificate-provisioner (same email as lego account)
 ./azure-ssl-certificate-provisioner run \
-  --domains example.com \
+  --zones example.com \
   --email "same-email@used-with-lego.com" \
   --subscription "12345678-1234-1234-1234-123456789012" \
   --resource-group "my-dns-rg"
@@ -423,7 +425,7 @@ Create account with azure-ssl-certificate-provisioner, then use with lego:
 
 ```bash
 # 1. Create account with azure-ssl-certificate-provisioner
-./azure-ssl-certificate-provisioner run --domains example.com --email test@example.com --staging
+./azure-ssl-certificate-provisioner run --zones example.com --email test@example.com --staging
 
 # 2. Use the same account with lego (install lego separately)
 lego --email test@example.com --dns azure --domains example.com --server https://acme-staging-v02.api.letsencrypt.org/directory run

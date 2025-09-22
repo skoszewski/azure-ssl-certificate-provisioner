@@ -28,7 +28,7 @@ func (c *Commands) createRunCommand() *cobra.Command {
 	}
 
 	// Configure flags for run command
-	runCmd.Flags().StringSliceP("domains", "d", nil, "Domain(s) to search for records (can be used multiple times)")
+	runCmd.Flags().StringSliceP("zones", "z", nil, "DNS zone(s) to search for records (can be used multiple times). If omitted, all zones in the resource group will be scanned")
 	runCmd.Flags().StringP("subscription", "s", "", "Azure subscription ID")
 	runCmd.Flags().StringP("resource-group", "g", "", "Azure resource group name")
 	runCmd.Flags().Bool("staging", true, "Use Let's Encrypt staging environment")
@@ -36,7 +36,6 @@ func (c *Commands) createRunCommand() *cobra.Command {
 	runCmd.Flags().StringP("email", "e", "", "Email address for ACME account registration (required)")
 
 	// Mark required flags
-	runCmd.MarkFlagRequired("domains")
 	runCmd.MarkFlagRequired("subscription")
 	runCmd.MarkFlagRequired("resource-group")
 	runCmd.MarkFlagRequired("email")
@@ -49,16 +48,12 @@ func (c *Commands) runCertificateProvisioner() {
 	ctx := context.Background()
 
 	// Get configuration values
-	domains := viper.GetStringSlice("domains")
+	zones := viper.GetStringSlice("zones")
 	subscriptionId := viper.GetString("subscription")
 	resourceGroupName := viper.GetString("resource-group")
 	staging := viper.GetBool("staging")
 	expireThreshold := viper.GetInt("expire-threshold")
 	email := viper.GetString("email")
-
-	if len(domains) == 0 {
-		log.Fatalf("No domains were specified. Use -d flag at least once.")
-	}
 
 	if subscriptionId == "" {
 		log.Fatalf("Subscription ID not specified.")
@@ -141,8 +136,39 @@ func (c *Commands) runCertificateProvisioner() {
 	// Create certificate handler
 	certHandler := certificate.NewHandler(acmeClient, azureClients.KVCert)
 
-	// Process domains
-	for _, zone := range domains {
+	// Determine which zones to process
+	var zonesToProcess []string
+	if len(zones) == 0 {
+		// If no zones specified, get all zones from the resource group
+		log.Printf("No zones specified, scanning all DNS zones in resource group: %s", resourceGroupName)
+		zonesPager := azureClients.DNSZones.NewListByResourceGroupPager(resourceGroupName, nil)
+
+		for zonesPager.More() {
+			zonesPage, err := zonesPager.NextPage(ctx)
+			if err != nil {
+				log.Fatalf("failed to list DNS zones in resource group %s: %v", resourceGroupName, err)
+			}
+
+			for _, zone := range zonesPage.Value {
+				if zone != nil && zone.Name != nil {
+					zonesToProcess = append(zonesToProcess, *zone.Name)
+				}
+			}
+		}
+
+		if len(zonesToProcess) == 0 {
+			log.Printf("No DNS zones found in resource group: %s", resourceGroupName)
+			return
+		}
+
+		log.Printf("Found %d DNS zone(s) to process: %v", len(zonesToProcess), zonesToProcess)
+	} else {
+		zonesToProcess = zones
+		log.Printf("Processing specified zones: %v", zonesToProcess)
+	}
+
+	// Process zones
+	for _, zone := range zonesToProcess {
 		log.Printf("Processing DNS zone: %s", zone)
 		pager := azureClients.DNS.NewListAllByDNSZonePager(resourceGroupName, zone, nil)
 

@@ -20,6 +20,7 @@ import (
 // Clients holds Azure service clients
 type Clients struct {
 	DNS        *armdns.RecordSetsClient
+	DNSZones   *armdns.ZonesClient
 	KVCert     *azcertificates.Client
 	Credential *azidentity.DefaultAzureCredential
 	Graph      *msgraph.GraphServiceClient
@@ -37,6 +38,11 @@ func NewClients(subscriptionID, vaultURL string) (*Clients, error) {
 		return nil, fmt.Errorf("failed to create DNS client: %v", err)
 	}
 
+	dnsZonesClient, err := armdns.NewZonesClient(subscriptionID, cred, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create DNS zones client: %v", err)
+	}
+
 	kvCertClient, err := azcertificates.NewClient(vaultURL, cred, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Key Vault client: %v", err)
@@ -49,6 +55,7 @@ func NewClients(subscriptionID, vaultURL string) (*Clients, error) {
 
 	return &Clients{
 		DNS:        dnsClient,
+		DNSZones:   dnsZonesClient,
 		KVCert:     kvCertClient,
 		Credential: cred,
 		Graph:      graphClient,
