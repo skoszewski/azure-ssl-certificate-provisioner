@@ -47,6 +47,9 @@ storing them in Azure Key Vault.`,
 
 // setupFlagBindings configures flag bindings to viper
 func (c *Commands) setupFlagBindings(runCmd, createSPCmd *cobra.Command) {
+	// Setup viper configuration first (environment variable bindings)
+	config.SetupViper()
+
 	// Bind flags to viper for run command
 	viper.BindPFlag("zones", runCmd.Flags().Lookup("zones"))
 	viper.BindPFlag("subscription", runCmd.Flags().Lookup("subscription"))
@@ -55,16 +58,13 @@ func (c *Commands) setupFlagBindings(runCmd, createSPCmd *cobra.Command) {
 	viper.BindPFlag("expire-threshold", runCmd.Flags().Lookup("expire-threshold"))
 	viper.BindPFlag("email", runCmd.Flags().Lookup("email"))
 
-	// Bind flags for create-service-principal command
-	viper.BindPFlag("name", createSPCmd.Flags().Lookup("name"))
-	viper.BindPFlag("tenant-id", createSPCmd.Flags().Lookup("tenant-id"))
-	viper.BindPFlag("subscription-id", createSPCmd.Flags().Lookup("subscription-id"))
-	viper.BindPFlag("assign-dns-role", createSPCmd.Flags().Lookup("assign-dns-role"))
-	viper.BindPFlag("resource-group", createSPCmd.Flags().Lookup("resource-group"))
-	viper.BindPFlag("kv-name", createSPCmd.Flags().Lookup("kv-name"))
-	viper.BindPFlag("kv-resource-group", createSPCmd.Flags().Lookup("kv-resource-group"))
-	viper.BindPFlag("shell", createSPCmd.Flags().Lookup("shell"))
-
-	// Setup viper configuration
-	config.SetupViper()
+	// Bind flags for create-service-principal command (using sp- prefix to avoid conflicts)
+	viper.BindPFlag("sp-name", createSPCmd.Flags().Lookup("name"))
+	viper.BindPFlag("sp-tenant-id", createSPCmd.Flags().Lookup("tenant-id"))
+	viper.BindPFlag("sp-subscription-id", createSPCmd.Flags().Lookup("subscription-id"))
+	viper.BindPFlag("sp-assign-dns-role", createSPCmd.Flags().Lookup("assign-dns-role"))
+	viper.BindPFlag("sp-resource-group", createSPCmd.Flags().Lookup("resource-group"))
+	viper.BindPFlag("sp-kv-name", createSPCmd.Flags().Lookup("kv-name"))
+	viper.BindPFlag("sp-kv-resource-group", createSPCmd.Flags().Lookup("kv-resource-group"))
+	viper.BindPFlag("sp-shell", createSPCmd.Flags().Lookup("shell"))
 }

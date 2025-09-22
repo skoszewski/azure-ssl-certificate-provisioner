@@ -3,13 +3,13 @@ package cli
 import (
 	"context"
 	"log"
-	"strings"
 
 	"github.com/go-acme/lego/v4/lego"
 	legoAzure "github.com/go-acme/lego/v4/providers/dns/azure"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"azure-ssl-certificate-provisioner/internal/zones"
 	"azure-ssl-certificate-provisioner/pkg/acme"
 	"azure-ssl-certificate-provisioner/pkg/azure"
 	"azure-ssl-certificate-provisioner/pkg/certificate"
@@ -36,9 +36,9 @@ func (c *Commands) createRunCommand() *cobra.Command {
 	runCmd.Flags().StringP("email", "e", "", "Email address for ACME account registration (required)")
 
 	// Mark required flags
-	runCmd.MarkFlagRequired("subscription")
-	runCmd.MarkFlagRequired("resource-group")
-	runCmd.MarkFlagRequired("email")
+	// Note: All these parameters can be provided via environment variables, so we don't use MarkFlagRequired
+	// which would prevent environment variable resolution. Manual validation is done in runCertificateProvisioner()
+	// Environment variables: AZURE_SUBSCRIPTION_ID, AZURE_RESOURCE_GROUP, LEGO_EMAIL
 
 	return runCmd
 }
@@ -48,7 +48,7 @@ func (c *Commands) runCertificateProvisioner() {
 	ctx := context.Background()
 
 	// Get configuration values
-	zones := viper.GetStringSlice("zones")
+	zonesList := viper.GetStringSlice("zones")
 	subscriptionId := viper.GetString("subscription")
 	resourceGroupName := viper.GetString("resource-group")
 	staging := viper.GetBool("staging")
@@ -136,80 +136,9 @@ func (c *Commands) runCertificateProvisioner() {
 	// Create certificate handler
 	certHandler := certificate.NewHandler(acmeClient, azureClients.KVCert)
 
-	// Determine which zones to process
-	var zonesToProcess []string
-	if len(zones) == 0 {
-		// If no zones specified, get all zones from the resource group
-		log.Printf("No zones specified, scanning all DNS zones in resource group: %s", resourceGroupName)
-		zonesPager := azureClients.DNSZones.NewListByResourceGroupPager(resourceGroupName, nil)
-
-		for zonesPager.More() {
-			zonesPage, err := zonesPager.NextPage(ctx)
-			if err != nil {
-				log.Fatalf("failed to list DNS zones in resource group %s: %v", resourceGroupName, err)
-			}
-
-			for _, zone := range zonesPage.Value {
-				if zone != nil && zone.Name != nil {
-					zonesToProcess = append(zonesToProcess, *zone.Name)
-				}
-			}
-		}
-
-		if len(zonesToProcess) == 0 {
-			log.Printf("No DNS zones found in resource group: %s", resourceGroupName)
-			return
-		}
-
-		log.Printf("Found %d DNS zone(s) to process: %v", len(zonesToProcess), zonesToProcess)
-	} else {
-		zonesToProcess = zones
-		log.Printf("Processing specified zones: %v", zonesToProcess)
-	}
-
-	// Process zones
-	for _, zone := range zonesToProcess {
-		log.Printf("Processing DNS zone: %s", zone)
-		pager := azureClients.DNS.NewListAllByDNSZonePager(resourceGroupName, zone, nil)
-
-		for pager.More() {
-			page, err := pager.NextPage(ctx)
-			if err != nil {
-				log.Fatalf("failed to list record sets for zone %s: %v", zone, err)
-			}
-
-			for _, rs := range page.Value {
-				if rs == nil {
-					continue
-				}
-
-				fqdn := *rs.Name + "." + zone
-				rsType := strings.TrimPrefix(*rs.Type, "Microsoft.Network/dnszones/")
-
-				if rs.Properties.Metadata == nil {
-					continue
-				}
-
-				val, ok := rs.Properties.Metadata["acme"]
-				if val == nil {
-					continue
-				}
-
-				if !ok || strings.ToLower(*val) != "true" {
-					continue
-				}
-
-				if rs.Name == nil {
-					continue
-				}
-
-				if rsType != "A" && rsType != "CNAME" {
-					continue
-				}
-
-				log.Printf("Found record %s (%s).", fqdn, rsType)
-				certHandler.ProcessFQDN(ctx, fqdn, expireThreshold)
-			}
-		}
+	// Create zones enumerator and process zones
+	enumerator := zones.NewEnumerator(azureClients)
+	if err := enumerator.EnumerateAndProcess(ctx, zonesList, resourceGroupName, expireThreshold, certHandler.ProcessFQDN); err != nil {
+		log.Fatalf("Failed to enumerate and process zones: %v", err)
 	}
 }

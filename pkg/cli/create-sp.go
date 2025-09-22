@@ -39,14 +39,14 @@ func (c *Commands) createServicePrincipalCommand() *cobra.Command {
 
 // runCreateServicePrincipal executes the service principal creation logic
 func (c *Commands) runCreateServicePrincipal() {
-	displayName := viper.GetString("name")
-	tenantID := viper.GetString("tenant-id")
-	subscriptionID := viper.GetString("subscription-id")
-	assignRole := viper.GetBool("assign-dns-role")
-	resourceGroup := viper.GetString("resource-group")
-	keyVaultName := viper.GetString("kv-name")
-	keyVaultResourceGroup := viper.GetString("kv-resource-group")
-	shell := viper.GetString("shell")
+	displayName := viper.GetString("sp-name")
+	tenantID := viper.GetString("sp-tenant-id")
+	subscriptionID := viper.GetString("sp-subscription-id")
+	assignRole := viper.GetBool("sp-assign-dns-role")
+	resourceGroup := viper.GetString("sp-resource-group")
+	keyVaultName := viper.GetString("sp-kv-name")
+	keyVaultResourceGroup := viper.GetString("sp-kv-resource-group")
+	shell := viper.GetString("sp-shell")
 
 	if displayName == "" {
 		log.Fatalf("Display name is required. Use --name flag.")
