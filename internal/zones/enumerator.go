@@ -34,14 +34,14 @@ func (e *Enumerator) EnumerateAndProcess(ctx context.Context, zones []string, re
 	}
 
 	if len(zonesToProcess) == 0 {
-		log.Printf("No DNS zones found in resource group: %s", resourceGroupName)
+		log.Printf("No DNS zones found: resource_group=%s", resourceGroupName)
 		return nil
 	}
 
 	// Process zones
 	for _, zone := range zonesToProcess {
 		if err := e.processZone(ctx, zone, resourceGroupName, expireThreshold, processor); err != nil {
-			log.Printf("Error processing zone %s: %v", zone, err)
+			log.Printf("Zone processing failed: zone=%s, error=%v", zone, err)
 			continue
 		}
 	}
@@ -61,7 +61,7 @@ func (e *Enumerator) determineZonesToProcess(ctx context.Context, zones []string
 		for zonesPager.More() {
 			zonesPage, err := zonesPager.NextPage(ctx)
 			if err != nil {
-				log.Printf("failed to list DNS zones in resource group %s: %v", resourceGroupName, err)
+				log.Printf("DNS zone listing failed: resource_group=%s, error=%v", resourceGroupName, err)
 				return nil, err
 			}
 
@@ -89,7 +89,7 @@ func (e *Enumerator) processZone(ctx context.Context, zone string, resourceGroup
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
-			log.Printf("failed to list record sets for zone %s: %v", zone, err)
+			log.Printf("Record set listing failed: zone=%s, error=%v", zone, err)
 			return err
 		}
 

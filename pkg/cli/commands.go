@@ -31,14 +31,16 @@ storing them in Azure Key Vault.`,
 
 	// Create subcommands
 	runCmd := c.createRunCommand()
+	listCmd := c.createListCommand()
 	envCmd := c.createEnvironmentCommand()
 	createSPCmd := c.createServicePrincipalCommand()
 
 	// Configure flag bindings
-	c.setupFlagBindings(runCmd, createSPCmd)
+	c.setupFlagBindings(runCmd, listCmd, createSPCmd)
 
 	// Add subcommands to root command
 	rootCmd.AddCommand(runCmd)
+	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(envCmd)
 	rootCmd.AddCommand(createSPCmd)
 
@@ -46,7 +48,7 @@ storing them in Azure Key Vault.`,
 }
 
 // setupFlagBindings configures flag bindings to viper
-func (c *Commands) setupFlagBindings(runCmd, createSPCmd *cobra.Command) {
+func (c *Commands) setupFlagBindings(runCmd, listCmd, createSPCmd *cobra.Command) {
 	// Setup viper configuration first (environment variable bindings)
 	config.SetupViper()
 
@@ -57,6 +59,14 @@ func (c *Commands) setupFlagBindings(runCmd, createSPCmd *cobra.Command) {
 	viper.BindPFlag("staging", runCmd.Flags().Lookup("staging"))
 	viper.BindPFlag("expire-threshold", runCmd.Flags().Lookup("expire-threshold"))
 	viper.BindPFlag("email", runCmd.Flags().Lookup("email"))
+
+	// Bind flags to viper for list command (same as run command)
+	viper.BindPFlag("list-zones", listCmd.Flags().Lookup("zones"))
+	viper.BindPFlag("list-subscription", listCmd.Flags().Lookup("subscription"))
+	viper.BindPFlag("list-resource-group", listCmd.Flags().Lookup("resource-group"))
+	viper.BindPFlag("list-staging", listCmd.Flags().Lookup("staging"))
+	viper.BindPFlag("list-expire-threshold", listCmd.Flags().Lookup("expire-threshold"))
+	viper.BindPFlag("list-email", listCmd.Flags().Lookup("email"))
 
 	// Bind flags for create-service-principal command (using sp- prefix to avoid conflicts)
 	viper.BindPFlag("sp-name", createSPCmd.Flags().Lookup("name"))

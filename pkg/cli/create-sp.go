@@ -70,10 +70,10 @@ func (c *Commands) runCreateServicePrincipal() {
 		if keyVaultResourceGroup == "" {
 			log.Fatalf("Resource group is required when assigning Key Vault role. Use --resource-group or --kv-resource-group flag.")
 		}
-		log.Printf("Using resource group '%s' for Key Vault '%s' role assignment", keyVaultResourceGroup, keyVaultName)
+		log.Printf("Key Vault role assignment: resource_group=%s, key_vault=%s", keyVaultResourceGroup, keyVaultName)
 	}
 
-	log.Printf("Creating service principal: %s", displayName)
+	log.Printf("Service principal creation started: %s", displayName)
 
 	// Create Azure clients
 	azureClients, err := azure.NewClients(subscriptionID, "https://dummy.vault.azure.net/") // Dummy URL since we don't need KV client here
@@ -86,10 +86,7 @@ func (c *Commands) runCreateServicePrincipal() {
 		log.Fatalf("Failed to create service principal: %v", err)
 	}
 
-	log.Printf("Successfully created service principal!")
-	log.Printf("Application ID: %s", spInfo.ApplicationID)
-	log.Printf("Client ID: %s", spInfo.ClientID)
-	log.Printf("Service Principal ID: %s", spInfo.ServicePrincipalID)
+	log.Printf("Service principal created: application_id=%s, client_id=%s, service_principal_id=%s", spInfo.ApplicationID, spInfo.ClientID, spInfo.ServicePrincipalID)
 
 	c.templateGen.GenerateServicePrincipalTemplate(spInfo, shell, keyVaultName, keyVaultResourceGroup)
 }

@@ -37,7 +37,7 @@ func ValidateRequiredEnvVars() error {
 		return fmt.Errorf("required Azure authentication environment variables are missing: %s", strings.Join(missingVars, ", "))
 	}
 
-	log.Printf("Azure authentication configured - Client ID: %s, Tenant ID: %s", clientID, tenantID)
+	log.Printf("Azure authentication configured: client_id=%s, tenant_id=%s", clientID, tenantID)
 	return nil
 }
 

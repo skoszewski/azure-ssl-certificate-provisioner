@@ -69,7 +69,7 @@ func (s *AccountStorage) ExistsAccountFilePath() bool {
 	if _, err := os.Stat(s.accountFilePath); os.IsNotExist(err) {
 		return false
 	} else if err != nil {
-		log.Printf("Error checking account file: %v", err)
+		log.Printf("Account file check failed: error=%v", err)
 		return false
 	}
 	return true
@@ -92,7 +92,7 @@ func (s *AccountStorage) Save(account *types.Account) error {
 		return fmt.Errorf("failed to write account file: %v", err)
 	}
 
-	log.Printf("Saved ACME account data to: %s", s.accountFilePath)
+	log.Printf("ACME account data saved: path=%s", s.accountFilePath)
 	return nil
 }
 
@@ -122,7 +122,7 @@ func (s *AccountStorage) GetPrivateKey(keyType certcrypto.KeyType) (crypto.Priva
 	}
 
 	// Generate new key
-	log.Printf("No key found for account %s. Generating a %s key.", s.email, keyType)
+	log.Printf("Generating private key: email=%s, key_type=%s", s.email, keyType)
 	if err := s.createKeysFolder(); err != nil {
 		return nil, err
 	}

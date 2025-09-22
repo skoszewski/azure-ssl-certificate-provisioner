@@ -43,6 +43,28 @@ func (c *Commands) createRunCommand() *cobra.Command {
 	return runCmd
 }
 
+// createListCommand creates the list command
+func (c *Commands) createListCommand() *cobra.Command {
+	var listCmd = &cobra.Command{
+		Use:   "list",
+		Short: "List DNS records and certificate status",
+		Long:  `Scan Azure DNS zones and list records that would be processed, along with their certificate status from Key Vault.`,
+		Run: func(cmd *cobra.Command, args []string) {
+			c.listCertificatesAndRecords()
+		},
+	}
+
+	// Configure flags for list command (same as run command)
+	listCmd.Flags().StringSliceP("zones", "z", nil, "DNS zone(s) to search for records (can be used multiple times). If omitted, all zones in the resource group will be scanned")
+	listCmd.Flags().StringP("subscription", "s", "", "Azure subscription ID")
+	listCmd.Flags().StringP("resource-group", "g", "", "Azure resource group name")
+	listCmd.Flags().Bool("staging", true, "Use Let's Encrypt staging environment")
+	listCmd.Flags().IntP("expire-threshold", "t", 7, "Certificate expiration threshold in days")
+	listCmd.Flags().StringP("email", "e", "", "Email address for ACME account registration (used for certificate lookup)")
+
+	return listCmd
+}
+
 // runCertificateProvisioner executes the main certificate provisioning logic
 func (c *Commands) runCertificateProvisioner() {
 	ctx := context.Background()
@@ -90,10 +112,10 @@ func (c *Commands) runCertificateProvisioner() {
 	var serverURL string
 	if staging {
 		serverURL = "https://acme-staging-v02.api.letsencrypt.org/directory"
-		log.Printf("Using Let's Encrypt staging environment")
+		log.Printf("ACME environment: staging")
 	} else {
 		serverURL = "https://acme-v02.api.letsencrypt.org/directory"
-		log.Printf("Using Let's Encrypt production environment")
+		log.Printf("ACME environment: production")
 	}
 
 	// Load or create ACME account with persistence
@@ -139,12 +161,12 @@ func (c *Commands) runCertificateProvisioner() {
 
 		// Save the account data for future runs
 		if err := acme.SaveAccountData(user, serverURL); err != nil {
-			log.Printf("Warning: Failed to save account registration: %v", err)
+			log.Printf("ACME account save failed: %v", err)
 		} else {
-			log.Printf("Saved ACME account registration for future use")
+			log.Printf("ACME account saved successfully")
 		}
 	} else {
-		log.Printf("Using existing ACME account registration for %s", user.Email)
+		log.Printf("ACME account loaded: %s", user.Email)
 	}
 
 	// Create certificate handler

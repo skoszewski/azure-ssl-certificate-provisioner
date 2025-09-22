@@ -24,7 +24,7 @@ func (g *TemplateGenerator) GenerateEnvironmentTemplate(shell string) {
 	case "bash", "sh":
 		g.generateBashTemplate()
 	default:
-		log.Printf("Unsupported shell type: %s. Supported types: bash, powershell", shell)
+		log.Printf("Unsupported shell type: shell=%s, supported=bash,powershell", shell)
 		g.generateBashTemplate()
 	}
 }
@@ -65,7 +65,7 @@ func (g *TemplateGenerator) GenerateServicePrincipalTemplate(spInfo *types.Servi
 	case "bash", "sh":
 		g.generateServicePrincipalBashTemplate(spInfo, keyVaultName, keyVaultResourceGroup)
 	default:
-		log.Printf("Unsupported shell type: %s. Using bash format", shell)
+		log.Printf("Unsupported shell type: shell=%s, using=bash", shell)
 		g.generateServicePrincipalBashTemplate(spInfo, keyVaultName, keyVaultResourceGroup)
 	}
 }

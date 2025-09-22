@@ -33,27 +33,27 @@ func NewHandler(acmeClient *lego.Client, kvCertClient *azcertificates.Client) *H
 // ProcessFQDN handles certificate provisioning for a given FQDN
 func (h *Handler) ProcessFQDN(ctx context.Context, fqdn string, expireThreshold int) {
 	certName := "cert-" + strings.ReplaceAll(fqdn, ".", "-")
-	log.Printf("Checking %s...", fqdn)
+	log.Printf("Certificate check started: %s", fqdn)
 
 	resp, err := h.kvCertClient.GetCertificate(ctx, certName, "", nil)
 	daysLeft := 0
 	if err == nil && resp.Attributes != nil && resp.Attributes.Expires != nil {
 		expiry := *resp.Attributes.Expires
 		daysLeft = int(time.Until(expiry).Hours() / 24)
-		log.Printf("Existing certificate expires on %s (%d days left)", expiry.Format(time.RFC3339), daysLeft)
+		log.Printf("Certificate exists: fqdn=%s, expires=%s, days_left=%d", fqdn, expiry.Format(time.RFC3339), daysLeft)
 	} else {
-		log.Printf("Certificate does not exist in Key Vault")
+		log.Printf("Certificate not found: fqdn=%s", fqdn)
 	}
 
 	if daysLeft > expireThreshold {
-		log.Printf("Skipping renewal; certificate still valid (expires in %d days, threshold is %d days)", daysLeft, expireThreshold)
+		log.Printf("Certificate renewal skipped: fqdn=%s, days_left=%d, threshold=%d", fqdn, daysLeft, expireThreshold)
 		return
 	}
 
 	// Generate a new private key for this certificate request
 	certPrivateKey, err := certcrypto.GeneratePrivateKey(certcrypto.RSA2048)
 	if err != nil {
-		log.Printf("ERROR: failed to generate private key for %s: %v", fqdn, err)
+		log.Printf("Private key generation failed: fqdn=%s, error=%v", fqdn, err)
 		return
 	}
 
@@ -65,29 +65,29 @@ func (h *Handler) ProcessFQDN(ctx context.Context, fqdn string, expireThreshold 
 
 	legoCert, err := h.acmeClient.Certificate.Obtain(legoReq)
 	if err != nil {
-		log.Printf("ERROR: failed to obtain certificate for %s: %v", fqdn, err)
+		log.Printf("Certificate obtain failed: fqdn=%s, error=%v", fqdn, err)
 		return
 	}
 
 	// Parse the certificate from the bundle to get expiration info
 	block, _ := pem.Decode(legoCert.Certificate)
 	if block == nil {
-		log.Printf("ERROR: unable to parse certificate PEM for %s", fqdn)
+		log.Printf("Certificate PEM parse failed: fqdn=%s", fqdn)
 		return
 	}
 
 	cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
-		log.Printf("ERROR: unable to parse certificate for %s: %v", fqdn, err)
+		log.Printf("Certificate parse failed: fqdn=%s, error=%v", fqdn, err)
 		return
 	}
 
-	log.Printf("Obtained new certificate expiring on %s", cert.NotAfter.Format(time.RFC3339))
+	log.Printf("Certificate obtained: fqdn=%s, expires=%s", fqdn, cert.NotAfter.Format(time.RFC3339))
 
 	// Use modern PKCS12 encoding with the original private key (no PEM decoding needed)
 	pfxData, err := pkcs12.Modern.Encode(certPrivateKey, cert, nil, "")
 	if err != nil {
-		log.Printf("ERROR: PKCS#12 encoding failed for %s: %v", fqdn, err)
+		log.Printf("PKCS12 encoding failed: fqdn=%s, error=%v", fqdn, err)
 		return
 	}
 
@@ -97,9 +97,9 @@ func (h *Handler) ProcessFQDN(ctx context.Context, fqdn string, expireThreshold 
 		Base64EncodedCertificate: &base64Cert,
 	}, nil)
 	if err != nil {
-		log.Printf("ERROR: failed to import certificate for %s into Key Vault: %v", fqdn, err)
+		log.Printf("Certificate import failed: fqdn=%s, cert_name=%s, error=%v", fqdn, certName, err)
 		return
 	}
 
-	log.Printf("Imported certificate %s into Key Vault", certName)
+	log.Printf("Certificate imported: fqdn=%s, cert_name=%s", fqdn, certName)
 }

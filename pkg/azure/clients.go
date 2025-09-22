@@ -132,18 +132,18 @@ func (c *Clients) CreateServicePrincipal(displayName, tenantID, subscriptionID s
 	// Optionally assign DNS Zone Contributor role
 	if assignDNSRole && resourceGroupName != "" {
 		if err := c.assignDNSZoneContributorRole(spInfo, resourceGroupName); err != nil {
-			log.Printf("Warning: Failed to assign DNS Zone Contributor role: %v", err)
+			log.Printf("DNS Zone Contributor role assignment failed: resource_group=%s, error=%v", resourceGroupName, err)
 		} else {
-			log.Printf("Successfully assigned DNS Zone Contributor role to resource group: %s", resourceGroupName)
+			log.Printf("DNS Zone Contributor role assigned: resource_group=%s", resourceGroupName)
 		}
 	}
 
 	// Optionally assign Key Vault Certificates Officer role
 	if keyVaultName != "" && keyVaultResourceGroup != "" {
 		if err := c.assignKeyVaultCertificatesOfficerRole(spInfo, keyVaultName, keyVaultResourceGroup); err != nil {
-			log.Printf("Warning: Failed to assign Key Vault Certificates Officer role: %v", err)
+			log.Printf("Key Vault Certificates Officer role assignment failed: key_vault=%s, error=%v", keyVaultName, err)
 		} else {
-			log.Printf("Successfully assigned Key Vault Certificates Officer role to Key Vault: %s", keyVaultName)
+			log.Printf("Key Vault Certificates Officer role assigned: key_vault=%s", keyVaultName)
 		}
 	}
 
