@@ -79,7 +79,7 @@ The tool requires the following environment variables:
 |----------|-------------|---------|
 | `ACME_EMAIL` | Email address for ACME account registration | `your-email@example.com` |
 | `AZURE_SUBSCRIPTION_ID` | Azure subscription ID | `12345678-1234-1234-1234-123456789012` |
-| `RESOURCE_GROUP_NAME` | Resource group containing DNS zones | `my-dns-rg` |
+| `AZURE_RESOURCE_GROUP` | Resource group containing DNS zones | `my-dns-rg` |
 | `AZURE_KEY_VAULT_URL` | Key Vault URL for certificate storage | `https://my-vault.vault.azure.net/` |
 | `AZURE_CLIENT_ID` | Service Principal client ID | `87654321-4321-4321-4321-210987654321` |
 | `AZURE_CLIENT_SECRET` | Service Principal client secret | `your-secret-key` |
@@ -102,7 +102,7 @@ Use the `environment` command to generate environment variable templates:
 # Azure SSL Certificate Provisioner - Environment Variables
 export ACME_EMAIL="your-email@example.com"
 export AZURE_SUBSCRIPTION_ID="your-azure-subscription-id"
-export RESOURCE_GROUP_NAME="your-resource-group-name"
+export AZURE_RESOURCE_GROUP="your-resource-group-name"
 export AZURE_KEY_VAULT_URL="https://your-keyvault.vault.azure.net/"
 export AZURE_CLIENT_ID="your-service-principal-client-id"
 export AZURE_CLIENT_SECRET="your-service-principal-client-secret"
@@ -171,7 +171,7 @@ az network dns record-set a update \
 # Set environment variables
 export ACME_EMAIL="your-email@example.com"
 export AZURE_SUBSCRIPTION_ID="12345678-1234-1234-1234-123456789012"
-export RESOURCE_GROUP_NAME="my-dns-rg"
+export AZURE_RESOURCE_GROUP="my-dns-rg"
 export AZURE_KEY_VAULT_URL="https://my-vault.vault.azure.net/"
 export AZURE_CLIENT_ID="87654321-4321-4321-4321-210987654321"
 export AZURE_CLIENT_SECRET="your-secret-key"

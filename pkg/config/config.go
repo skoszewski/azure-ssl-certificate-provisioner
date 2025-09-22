@@ -45,7 +45,7 @@ func ValidateRequiredEnvVars() error {
 func SetupViper() {
 	// Set environment variable bindings
 	viper.BindEnv("subscription", "AZURE_SUBSCRIPTION_ID")
-	viper.BindEnv("resource-group", "RESOURCE_GROUP_NAME")
+	viper.BindEnv("resource-group", "AZURE_RESOURCE_GROUP")
 	viper.BindEnv("key-vault-url", "AZURE_KEY_VAULT_URL")
 	viper.BindEnv("email", "ACME_EMAIL")
 

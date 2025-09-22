@@ -34,7 +34,7 @@ func (g *TemplateGenerator) generateBashTemplate() {
 	fmt.Println("export ACME_EMAIL=\"your-email@example.com\"")
 	fmt.Println("# Azure subscription and resource group")
 	fmt.Println("export AZURE_SUBSCRIPTION_ID=\"your-azure-subscription-id\"")
-	fmt.Println("export RESOURCE_GROUP_NAME=\"your-resource-group-name\"")
+	fmt.Println("export AZURE_RESOURCE_GROUP=\"your-resource-group-name\"")
 	fmt.Println("# Azure Key Vault for certificate storage")
 	fmt.Println("export AZURE_KEY_VAULT_URL=\"https://your-keyvault.vault.azure.net/\"")
 	fmt.Println("# Azure authentication (Service Principal)")
@@ -48,7 +48,7 @@ func (g *TemplateGenerator) generatePowerShellTemplate() {
 	fmt.Println("$env:ACME_EMAIL = \"your-email@example.com\"")
 	fmt.Println("# Azure subscription and resource group")
 	fmt.Println("$env:AZURE_SUBSCRIPTION_ID = \"your-azure-subscription-id\"")
-	fmt.Println("$env:RESOURCE_GROUP_NAME = \"your-resource-group-name\"")
+	fmt.Println("$env:AZURE_RESOURCE_GROUP = \"your-resource-group-name\"")
 	fmt.Println("# Azure Key Vault for certificate storage")
 	fmt.Println("$env:AZURE_KEY_VAULT_URL = \"https://your-keyvault.vault.azure.net/\"")
 	fmt.Println("# Azure authentication (Service Principal)")
@@ -75,9 +75,9 @@ func (g *TemplateGenerator) generateServicePrincipalBashTemplate(spInfo *types.S
 	fmt.Printf("export AZURE_SUBSCRIPTION_ID=\"%s\"\n", spInfo.SubscriptionID)
 	fmt.Printf("export AZURE_TENANT_ID=\"%s\"\n", spInfo.TenantID)
 	if keyVaultResourceGroup != "" {
-		fmt.Printf("export RESOURCE_GROUP_NAME=\"%s\"\n", keyVaultResourceGroup)
+		fmt.Printf("export AZURE_RESOURCE_GROUP=\"%s\"\n", keyVaultResourceGroup)
 	} else {
-		fmt.Println("export RESOURCE_GROUP_NAME=\"your-resource-group-name\"")
+		fmt.Println("export AZURE_RESOURCE_GROUP=\"your-resource-group-name\"")
 	}
 	if keyVaultName != "" {
 		fmt.Printf("export AZURE_KEY_VAULT_URL=\"https://%s.vault.azure.net/\"\n", keyVaultName)
@@ -93,9 +93,9 @@ func (g *TemplateGenerator) generateServicePrincipalPowerShellTemplate(spInfo *t
 	fmt.Printf("$env:AZURE_SUBSCRIPTION_ID = \"%s\"\n", spInfo.SubscriptionID)
 	fmt.Printf("$env:AZURE_TENANT_ID = \"%s\"\n", spInfo.TenantID)
 	if keyVaultResourceGroup != "" {
-		fmt.Printf("$env:RESOURCE_GROUP_NAME = \"%s\"\n", keyVaultResourceGroup)
+		fmt.Printf("$env:AZURE_RESOURCE_GROUP = \"%s\"\n", keyVaultResourceGroup)
 	} else {
-		fmt.Println("$env:RESOURCE_GROUP_NAME = \"your-resource-group-name\"")
+		fmt.Println("$env:AZURE_RESOURCE_GROUP = \"your-resource-group-name\"")
 	}
 	if keyVaultName != "" {
 		fmt.Printf("$env:AZURE_KEY_VAULT_URL = \"https://%s.vault.azure.net/\"\n", keyVaultName)
