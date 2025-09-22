@@ -47,7 +47,7 @@ func SetupViper() {
 	viper.BindEnv("subscription", "AZURE_SUBSCRIPTION_ID")
 	viper.BindEnv("resource-group", "AZURE_RESOURCE_GROUP")
 	viper.BindEnv("key-vault-url", "AZURE_KEY_VAULT_URL")
-	viper.BindEnv("email", "ACME_EMAIL")
+	viper.BindEnv("email", "LEGO_EMAIL")
 
 	// Azure authentication environment variables for lego DNS provider
 	viper.BindEnv("azure-client-id", "AZURE_CLIENT_ID")

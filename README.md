@@ -77,7 +77,7 @@ The tool requires the following environment variables:
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `ACME_EMAIL` | Email address for ACME account registration | `your-email@example.com` |
+| `LEGO_EMAIL` | Email address for ACME account registration | `your-email@example.com` |
 | `AZURE_SUBSCRIPTION_ID` | Azure subscription ID | `12345678-1234-1234-1234-123456789012` |
 | `AZURE_RESOURCE_GROUP` | Resource group containing DNS zones | `my-dns-rg` |
 | `AZURE_KEY_VAULT_URL` | Key Vault URL for certificate storage | `https://my-vault.vault.azure.net/` |
@@ -100,7 +100,7 @@ Use the `environment` command to generate environment variable templates:
 **Example Bash Output:**
 ```bash
 # Azure SSL Certificate Provisioner - Environment Variables
-export ACME_EMAIL="your-email@example.com"
+export LEGO_EMAIL="your-email@example.com"
 export AZURE_SUBSCRIPTION_ID="your-azure-subscription-id"
 export AZURE_RESOURCE_GROUP="your-resource-group-name"
 export AZURE_KEY_VAULT_URL="https://your-keyvault.vault.azure.net/"
@@ -108,6 +108,16 @@ export AZURE_CLIENT_ID="your-service-principal-client-id"
 export AZURE_CLIENT_SECRET="your-service-principal-client-secret"
 export AZURE_TENANT_ID="your-azure-tenant-id"
 ```
+
+### Lego Compatibility
+
+This tool uses the same environment variable names as the [lego](https://github.com/go-acme/lego) command-line tool for maximum compatibility:
+
+- **Email**: `LEGO_EMAIL` (compatible with lego's `--email` flag and environment variable)
+- **Account Storage**: Uses lego-compatible account storage in `~/.lego/accounts/`
+- **Environment Variables**: Follows lego's naming conventions where applicable
+
+This ensures seamless integration with existing lego-based workflows and tooling.
 
 ## Usage
 
@@ -169,7 +179,7 @@ az network dns record-set a update \
 
 ```bash
 # Set environment variables
-export ACME_EMAIL="your-email@example.com"
+export LEGO_EMAIL="your-email@example.com"
 export AZURE_SUBSCRIPTION_ID="12345678-1234-1234-1234-123456789012"
 export AZURE_RESOURCE_GROUP="my-dns-rg"
 export AZURE_KEY_VAULT_URL="https://my-vault.vault.azure.net/"

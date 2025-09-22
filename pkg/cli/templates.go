@@ -31,7 +31,7 @@ func (g *TemplateGenerator) GenerateEnvironmentTemplate(shell string) {
 
 func (g *TemplateGenerator) generateBashTemplate() {
 	fmt.Println("# ACME account email for Let's Encrypt registration")
-	fmt.Println("export ACME_EMAIL=\"your-email@example.com\"")
+	fmt.Println("export LEGO_EMAIL=\"your-email@example.com\"")
 	fmt.Println("# Azure subscription and resource group")
 	fmt.Println("export AZURE_SUBSCRIPTION_ID=\"your-azure-subscription-id\"")
 	fmt.Println("export AZURE_RESOURCE_GROUP=\"your-resource-group-name\"")
@@ -45,7 +45,7 @@ func (g *TemplateGenerator) generateBashTemplate() {
 
 func (g *TemplateGenerator) generatePowerShellTemplate() {
 	fmt.Println("# ACME account email for Let's Encrypt registration")
-	fmt.Println("$env:ACME_EMAIL = \"your-email@example.com\"")
+	fmt.Println("$env:LEGO_EMAIL = \"your-email@example.com\"")
 	fmt.Println("# Azure subscription and resource group")
 	fmt.Println("$env:AZURE_SUBSCRIPTION_ID = \"your-azure-subscription-id\"")
 	fmt.Println("$env:AZURE_RESOURCE_GROUP = \"your-resource-group-name\"")
@@ -71,7 +71,7 @@ func (g *TemplateGenerator) GenerateServicePrincipalTemplate(spInfo *types.Servi
 }
 
 func (g *TemplateGenerator) generateServicePrincipalBashTemplate(spInfo *types.ServicePrincipalInfo, keyVaultName, keyVaultResourceGroup string) {
-	fmt.Println("export ACME_EMAIL=\"your-email@example.com\"")
+	fmt.Println("export LEGO_EMAIL=\"your-email@example.com\"")
 	fmt.Printf("export AZURE_SUBSCRIPTION_ID=\"%s\"\n", spInfo.SubscriptionID)
 	fmt.Printf("export AZURE_TENANT_ID=\"%s\"\n", spInfo.TenantID)
 	if keyVaultResourceGroup != "" {
@@ -89,7 +89,7 @@ func (g *TemplateGenerator) generateServicePrincipalBashTemplate(spInfo *types.S
 }
 
 func (g *TemplateGenerator) generateServicePrincipalPowerShellTemplate(spInfo *types.ServicePrincipalInfo, keyVaultName, keyVaultResourceGroup string) {
-	fmt.Println("$env:ACME_EMAIL = \"your-email@example.com\"")
+	fmt.Println("$env:LEGO_EMAIL = \"your-email@example.com\"")
 	fmt.Printf("$env:AZURE_SUBSCRIPTION_ID = \"%s\"\n", spInfo.SubscriptionID)
 	fmt.Printf("$env:AZURE_TENANT_ID = \"%s\"\n", spInfo.TenantID)
 	if keyVaultResourceGroup != "" {
