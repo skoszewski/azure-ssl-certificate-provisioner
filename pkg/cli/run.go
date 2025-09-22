@@ -68,11 +68,17 @@ func (c *Commands) runCertificateProvisioner() {
 	}
 
 	// Validate all required environment variables
+	// Validate required environment variables
 	if err := config.ValidateRequiredEnvVars(); err != nil {
 		log.Fatalf("Environment validation failed: %v", err)
 	}
 
 	vaultURL := viper.GetString("key-vault-url")
+
+	// Get Azure authentication variables for lego DNS provider
+	clientID := viper.GetString("azure-client-id")
+	clientSecret := viper.GetString("azure-client-secret")
+	tenantID := viper.GetString("azure-tenant-id")
 
 	// Create Azure clients
 	azureClients, err := azure.NewClients(subscriptionId, vaultURL)
@@ -108,7 +114,15 @@ func (c *Commands) runCertificateProvisioner() {
 		log.Fatalf("failed to create ACME client: %v", err)
 	}
 
-	provider, err := legoAzure.NewDNSProvider()
+	// Create Azure DNS provider configuration with values from our app config
+	dnsConfig := legoAzure.NewDefaultConfig()
+	dnsConfig.ResourceGroup = resourceGroupName
+	dnsConfig.SubscriptionID = subscriptionId
+	dnsConfig.ClientID = clientID
+	dnsConfig.ClientSecret = clientSecret
+	dnsConfig.TenantID = tenantID
+
+	provider, err := legoAzure.NewDNSProviderConfig(dnsConfig)
 	if err != nil {
 		log.Fatalf("failed to initialise Azure DNS provider: %v", err)
 	}
