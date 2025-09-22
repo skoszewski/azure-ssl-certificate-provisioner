@@ -44,7 +44,7 @@ storing them in Azure Key Vault.`,
 	createSPCmd := c.createServicePrincipalCommand()
 
 	// Configure flag bindings
-	c.setupFlagBindings(runCmd, envCmd, createSPCmd)
+	c.setupFlagBindings(runCmd, createSPCmd)
 
 	// Add subcommands to root command
 	rootCmd.AddCommand(runCmd)
@@ -143,7 +143,7 @@ func (c *Commands) createServicePrincipalCommand() *cobra.Command {
 	return createSPCmd
 }
 
-func (c *Commands) setupFlagBindings(runCmd, envCmd, createSPCmd *cobra.Command) {
+func (c *Commands) setupFlagBindings(runCmd, createSPCmd *cobra.Command) {
 	// Bind flags to viper for run command
 	viper.BindPFlag("domains", runCmd.Flags().Lookup("domains"))
 	viper.BindPFlag("subscription", runCmd.Flags().Lookup("subscription"))
