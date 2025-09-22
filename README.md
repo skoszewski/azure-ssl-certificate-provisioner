@@ -222,16 +222,71 @@ Flags:
   -h, --help                    Help for run
 ```
 
+#### `list` Command
+
+Lists DNS records and their certificate status without provisioning certificates.
+
+```bash
+./azure-ssl-certificate-provisioner list [flags]
+
+Flags:
+  -z, --zones strings           DNS zone(s) to search for records. If omitted, all zones in the resource group will be scanned
+  -e, --email string            Email address for ACME account registration (used for certificate lookup)
+  -t, --expire-threshold int    Certificate expiration threshold in days (default: 7)
+  -g, --resource-group string   Azure resource group name (required)
+  -s, --subscription string     Azure subscription ID (required)
+      --staging                 Use Let's Encrypt staging environment (default: true)
+  -h, --help                    Help for list
+```
+
+**Usage Examples:**
+
+```bash
+# List all certificates and their status
+./azure-ssl-certificate-provisioner list \
+  --email "your-email@example.com" \
+  --subscription "12345678-1234-1234-1234-123456789012" \
+  --resource-group "my-dns-rg"
+
+# List certificates for specific zones
+./azure-ssl-certificate-provisioner list \
+  --zones example.com \
+  --zones api.example.com \
+  --email "your-email@example.com" \
+  --subscription "12345678-1234-1234-1234-123456789012" \
+  --resource-group "my-dns-rg"
+
+# Check certificates with custom expiration threshold
+./azure-ssl-certificate-provisioner list \
+  --expire-threshold 30 \
+  --email "your-email@example.com" \
+  --subscription "12345678-1234-1234-1234-123456789012" \
+  --resource-group "my-dns-rg"
+```
+
 #### `environment` Command
 
 Generates environment variable templates.
 
 ```bash
-./azure-ssl-certificate-provisioner environment [flags]
+./azure-ssl-certificate-provisioner environment [command]
+
+Available Commands:
+  bash        Generate Bash environment variable template
+  powershell  Generate PowerShell environment variable template
 
 Flags:
-  -s, --shell string   Shell type for template (bash, powershell) (default: "bash")
-  -h, --help          Help for environment
+  -h, --help   Help for environment
+```
+
+**Usage Examples:**
+
+```bash
+# Generate Bash template
+./azure-ssl-certificate-provisioner environment bash
+
+# Generate PowerShell template
+./azure-ssl-certificate-provisioner environment powershell
 ```
 
 #### `create-service-principal` Command
@@ -245,13 +300,15 @@ is created in the correct Azure environment.
 ./azure-ssl-certificate-provisioner create-service-principal [flags]
 
 Flags:
-  -n, --name string             Display name for the Azure AD application (required)
-  -t, --tenant-id string        Azure tenant ID (required)
-  -s, --subscription-id string  Azure subscription ID (required)
-      --assign-dns-role         Assign DNS Zone Contributor role to the specified resource group
-  -g, --resource-group string   Resource group name for DNS Zone Contributor role assignment
-      --shell string            Shell type for output template (bash, powershell) (default: "bash")
-  -h, --help                    Help for create-service-principal
+  -n, --name string                Display name for the Azure AD application (required)
+  -t, --tenant-id string           Azure tenant ID (required)
+  -s, --subscription-id string     Azure subscription ID (required)
+      --assign-dns-role            Assign DNS Zone Contributor role to the specified resource group
+  -g, --resource-group string      Resource group name for DNS Zone Contributor role assignment
+      --kv-name string             Key Vault name for Certificates Officer role assignment
+      --kv-resource-group string   Resource group name for the Key Vault
+      --shell string               Shell type for output template (bash, powershell) (default: "bash")
+  -h, --help                       Help for create-service-principal
 ```
 
 **Usage Examples:**
