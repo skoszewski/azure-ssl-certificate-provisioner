@@ -75,15 +75,21 @@ This command will:
 
 The tool requires the following environment variables:
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `LEGO_EMAIL` | Email address for ACME account registration | `your-email@example.com` |
-| `AZURE_SUBSCRIPTION_ID` | Azure subscription ID | `12345678-1234-1234-1234-123456789012` |
-| `AZURE_RESOURCE_GROUP` | Resource group containing DNS zones | `my-dns-rg` |
-| `AZURE_KEY_VAULT_URL` | Key Vault URL for certificate storage | `https://my-vault.vault.azure.net/` |
-| `AZURE_CLIENT_ID` | Service Principal client ID | `87654321-4321-4321-4321-210987654321` |
-| `AZURE_CLIENT_SECRET` | Service Principal client secret | `your-secret-key` |
-| `AZURE_TENANT_ID` | Azure tenant ID | `11111111-2222-3333-4444-555555555555` |
+| Variable | Required | Description | Example |
+|----------|----------|-------------|---------|
+| `LEGO_EMAIL` | ✅ | Email address for ACME account registration | `your-email@example.com` |
+| `AZURE_SUBSCRIPTION_ID` | ✅ | Azure subscription ID | `12345678-1234-1234-1234-123456789012` |
+| `AZURE_RESOURCE_GROUP` | ✅ | Resource group containing DNS zones | `my-dns-rg` |
+| `AZURE_KEY_VAULT_URL` | ✅ | Key Vault URL for certificate storage | `https://my-vault.vault.azure.net/` |
+| `AZURE_AUTH_METHOD` | ❌ | Authentication method (`msi`, `cli`, etc.) | `msi` |
+| `AZURE_CLIENT_ID` | ⚠️ | Service Principal/User-assigned MSI client ID | `87654321-4321-4321-4321-210987654321` |
+| `AZURE_CLIENT_SECRET` | ⚠️ | Service Principal client secret | `your-secret-key` |
+| `AZURE_TENANT_ID` | ⚠️ | Azure tenant ID | `11111111-2222-3333-4444-555555555555` |
+
+**Legend:**
+- ✅ **Always Required**: Must be set in all configurations
+- ⚠️ **Conditionally Required**: Required for Service Principal authentication, optional for MSI
+- ❌ **Optional**: Used to specify authentication method explicitly
 
 ### Generate Environment Template
 
@@ -109,6 +115,57 @@ export AZURE_CLIENT_SECRET="your-service-principal-client-secret"
 export AZURE_TENANT_ID="your-azure-tenant-id"
 ```
 
+### Authentication Methods
+
+The tool supports multiple Azure authentication methods for maximum flexibility:
+
+#### 1. Service Principal (Traditional)
+Uses explicit service principal credentials:
+```bash
+export AZURE_CLIENT_ID="your-service-principal-client-id"
+export AZURE_CLIENT_SECRET="your-service-principal-client-secret"
+export AZURE_TENANT_ID="your-azure-tenant-id"
+```
+
+#### 2. Managed Identity (Recommended for Azure Resources)
+Use Azure Managed Identity for secure, credential-free authentication:
+
+**System-Assigned Managed Identity:**
+```bash
+export AZURE_AUTH_METHOD=msi
+# No client credentials needed - automatically detected
+```
+
+**User-Assigned Managed Identity:**
+```bash
+export AZURE_AUTH_METHOD=msi
+export AZURE_CLIENT_ID="your-user-assigned-msi-client-id"
+```
+
+**Azure Arc Managed Identity:**
+```bash
+export AZURE_AUTH_METHOD=msi
+export IMDS_ENDPOINT=http://localhost:40342
+export IDENTITY_ENDPOINT=http://localhost:40342/metadata/identity/oauth2/token
+```
+
+#### 3. Azure CLI
+Use Azure CLI authentication (great for local development):
+```bash
+export AZURE_AUTH_METHOD=cli
+# Run 'az login' first
+```
+
+#### 4. Default Credential Chain
+Let Azure SDK automatically detect the best authentication method:
+```bash
+# Leave AZURE_AUTH_METHOD unset - tries MSI, CLI, etc. automatically
+```
+
+#### Additional Authentication Options
+- `AZURE_AUTH_MSI_TIMEOUT`: MSI timeout duration (default: 2s)
+- `AZURE_USE_MSI=true`: Legacy support (automatically converts to `AZURE_AUTH_METHOD=msi`)
+
 ### Lego Compatibility
 
 This tool uses the same environment variable names as the [lego](https://github.com/go-acme/lego) command-line tool for maximum compatibility:
@@ -116,6 +173,7 @@ This tool uses the same environment variable names as the [lego](https://github.
 - **Email**: `LEGO_EMAIL` (compatible with lego's `--email` flag and environment variable)
 - **Account Storage**: Uses lego-compatible account storage in `~/.lego/accounts/`
 - **Environment Variables**: Follows lego's naming conventions where applicable
+- **Azure DNS Provider**: Uses lego's modern `azuredns` provider with full MSI support
 
 This ensures seamless integration with existing lego-based workflows and tooling.
 

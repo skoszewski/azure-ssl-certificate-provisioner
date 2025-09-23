@@ -3,9 +3,10 @@ package cli
 import (
 	"context"
 	"log"
+	"os"
 
 	"github.com/go-acme/lego/v4/lego"
-	legoAzure "github.com/go-acme/lego/v4/providers/dns/azure"
+	legoAzure "github.com/go-acme/lego/v4/providers/dns/azuredns"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -97,11 +98,6 @@ func (c *Commands) runCertificateProvisioner() {
 
 	vaultURL := viper.GetString("key-vault-url")
 
-	// Get Azure authentication variables for lego DNS provider
-	clientID := viper.GetString("azure-client-id")
-	clientSecret := viper.GetString("azure-client-secret")
-	tenantID := viper.GetString("azure-tenant-id")
-
 	// Create Azure clients
 	azureClients, err := azure.NewClients(subscriptionId, vaultURL)
 	if err != nil {
@@ -136,15 +132,14 @@ func (c *Commands) runCertificateProvisioner() {
 		log.Fatalf("failed to create ACME client: %v", err)
 	}
 
-	// Create Azure DNS provider configuration with values from our app config
-	dnsConfig := legoAzure.NewDefaultConfig()
-	dnsConfig.ResourceGroup = resourceGroupName
-	dnsConfig.SubscriptionID = subscriptionId
-	dnsConfig.ClientID = clientID
-	dnsConfig.ClientSecret = clientSecret
-	dnsConfig.TenantID = tenantID
+	// Set environment variables for the Azure DNS provider
+	// The azuredns provider reads directly from environment variables
+	if err := setAzureDNSEnvironment(subscriptionId, resourceGroupName); err != nil {
+		log.Fatalf("failed to configure Azure DNS environment: %v", err)
+	}
 
-	provider, err := legoAzure.NewDNSProviderConfig(dnsConfig)
+	// Create Azure DNS provider - it will automatically detect the authentication method
+	provider, err := legoAzure.NewDNSProvider()
 	if err != nil {
 		log.Fatalf("failed to initialise Azure DNS provider: %v", err)
 	}
@@ -177,4 +172,30 @@ func (c *Commands) runCertificateProvisioner() {
 	if err := enumerator.EnumerateAndProcess(ctx, zonesList, resourceGroupName, expireThreshold, certHandler.ProcessFQDN); err != nil {
 		log.Fatalf("Failed to enumerate and process zones: %v", err)
 	}
+}
+
+// setAzureDNSEnvironment configures environment variables required by the azuredns provider
+func setAzureDNSEnvironment(subscriptionID, resourceGroup string) error {
+	// Set required environment variables for the azuredns provider
+	if subscriptionID != "" {
+		os.Setenv("AZURE_SUBSCRIPTION_ID", subscriptionID)
+	}
+	if resourceGroup != "" {
+		os.Setenv("AZURE_RESOURCE_GROUP", resourceGroup)
+	}
+
+	// Set auth method if specified via viper
+	authMethod := viper.GetString("azure-auth-method")
+	if authMethod != "" {
+		os.Setenv("AZURE_AUTH_METHOD", authMethod)
+		log.Printf("Azure DNS authentication method: %s", authMethod)
+	}
+
+	// Set MSI timeout if specified
+	msiTimeout := viper.GetString("azure-auth-msi-timeout")
+	if msiTimeout != "" {
+		os.Setenv("AZURE_AUTH_MSI_TIMEOUT", msiTimeout)
+	}
+
+	return nil
 }

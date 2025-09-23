@@ -16,12 +16,40 @@ func ValidateRequiredEnvVars() error {
 		return fmt.Errorf("AZURE_KEY_VAULT_URL environment variable is required")
 	}
 
+	// Check authentication method
+	authMethod := viper.GetString("azure-auth-method")
+
+	if authMethod == "msi" {
+		log.Printf("MSI authentication configured")
+		clientID := viper.GetString("azure-client-id")
+		if clientID != "" {
+			log.Printf("User-assigned MSI client ID: %s", clientID)
+		} else {
+			log.Printf("System-assigned MSI will be used")
+		}
+		return nil
+	}
+
 	// Check Azure authentication variables required by lego DNS provider
 	// These are needed for the Azure DNS provider to authenticate with Azure
 	clientID := viper.GetString("azure-client-id")
 	clientSecret := viper.GetString("azure-client-secret")
 	tenantID := viper.GetString("azure-tenant-id")
 
+	// If no explicit auth method is set, check if we have service principal credentials
+	if authMethod == "" {
+		// Auto-detect based on available credentials
+		if clientID != "" && clientSecret != "" && tenantID != "" {
+			log.Printf("Service Principal authentication configured: client_id=%s, tenant_id=%s", clientID, tenantID)
+			return nil
+		}
+
+		// Fall back to default credential chain if no explicit credentials
+		log.Printf("Using Azure Default Credential chain authentication")
+		return nil
+	}
+
+	// For explicit service principal auth method
 	missingVars := []string{}
 	if clientID == "" {
 		missingVars = append(missingVars, "AZURE_CLIENT_ID")
@@ -34,10 +62,10 @@ func ValidateRequiredEnvVars() error {
 	}
 
 	if len(missingVars) > 0 {
-		return fmt.Errorf("required Azure authentication environment variables are missing: %s", strings.Join(missingVars, ", "))
+		return fmt.Errorf("required Azure authentication environment variables are missing: %s (or set AZURE_AUTH_METHOD=msi for MSI authentication)", strings.Join(missingVars, ", "))
 	}
 
-	log.Printf("Azure authentication configured: client_id=%s, tenant_id=%s", clientID, tenantID)
+	log.Printf("Service Principal authentication configured: client_id=%s, tenant_id=%s", clientID, tenantID)
 	return nil
 }
 
@@ -53,7 +81,11 @@ func SetupViper() {
 	viper.BindEnv("azure-client-id", "AZURE_CLIENT_ID")
 	viper.BindEnv("azure-client-secret", "AZURE_CLIENT_SECRET")
 	viper.BindEnv("azure-tenant-id", "AZURE_TENANT_ID")
+	viper.BindEnv("azure-auth-method", "AZURE_AUTH_METHOD")
+	viper.BindEnv("azure-auth-msi-timeout", "AZURE_AUTH_MSI_TIMEOUT")
 
 	// Set defaults
 	viper.SetDefault("staging", true)
+	viper.SetDefault("azure-auth-method", "")
+	viper.SetDefault("azure-auth-msi-timeout", "2s")
 }
