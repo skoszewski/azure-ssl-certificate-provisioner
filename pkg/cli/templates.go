@@ -17,15 +17,29 @@ func NewTemplateGenerator() *TemplateGenerator {
 }
 
 // GenerateEnvironmentTemplate generates environment variable templates
-func (g *TemplateGenerator) GenerateEnvironmentTemplate(shell string) {
+func (g *TemplateGenerator) GenerateEnvironmentTemplate(shell string, msiType string) {
+	isUserMSI := msiType == "user"
+
 	switch strings.ToLower(shell) {
 	case "powershell", "ps1":
-		g.generatePowerShellTemplate()
+		if msiType == "system" || msiType == "user" {
+			g.generateMSIPowerShellTemplate(isUserMSI)
+		} else {
+			g.generatePowerShellTemplate()
+		}
 	case "bash", "sh":
-		g.generateBashTemplate()
+		if msiType == "system" || msiType == "user" {
+			g.generateMSIBashTemplate(isUserMSI)
+		} else {
+			g.generateBashTemplate()
+		}
 	default:
 		log.Printf("Unsupported shell type: shell=%s, supported=bash,powershell", shell)
-		g.generateBashTemplate()
+		if msiType == "system" || msiType == "user" {
+			g.generateMSIBashTemplate(isUserMSI)
+		} else {
+			g.generateBashTemplate()
+		}
 	}
 }
 
@@ -104,4 +118,35 @@ func (g *TemplateGenerator) generateServicePrincipalPowerShellTemplate(spInfo *t
 	}
 	fmt.Printf("$env:AZURE_CLIENT_ID = \"%s\"\n", spInfo.ClientID)
 	fmt.Printf("$env:AZURE_CLIENT_SECRET = \"%s\"\n", spInfo.ClientSecret)
+}
+
+// MSI template methods
+func (g *TemplateGenerator) generateMSIBashTemplate(isUserMSI bool) {
+	fmt.Println("# ACME account email for Let's Encrypt registration")
+	fmt.Println("export LEGO_EMAIL=\"your-email@example.com\"")
+	fmt.Println("# Azure subscription and resource group")
+	fmt.Println("export AZURE_SUBSCRIPTION_ID=\"your-azure-subscription-id\"")
+	fmt.Println("export AZURE_RESOURCE_GROUP=\"your-resource-group-name\"")
+	fmt.Println("# Azure Key Vault for certificate storage")
+	fmt.Println("export AZURE_KEY_VAULT_URL=\"https://your-keyvault.vault.azure.net/\"")
+	fmt.Println("# Azure authentication (Managed Identity)")
+	fmt.Println("export AZURE_AUTH_METHOD=\"msi\"")
+	if isUserMSI {
+		fmt.Println("export AZURE_CLIENT_ID=\"your-user-assigned-msi-client-id\"")
+	}
+}
+
+func (g *TemplateGenerator) generateMSIPowerShellTemplate(isUserMSI bool) {
+	fmt.Println("# ACME account email for Let's Encrypt registration")
+	fmt.Println("$env:LEGO_EMAIL = \"your-email@example.com\"")
+	fmt.Println("# Azure subscription and resource group")
+	fmt.Println("$env:AZURE_SUBSCRIPTION_ID = \"your-azure-subscription-id\"")
+	fmt.Println("$env:AZURE_RESOURCE_GROUP = \"your-resource-group-name\"")
+	fmt.Println("# Azure Key Vault for certificate storage")
+	fmt.Println("$env:AZURE_KEY_VAULT_URL = \"https://your-keyvault.vault.azure.net/\"")
+	fmt.Println("# Azure authentication (Managed Identity)")
+	fmt.Println("$env:AZURE_AUTH_METHOD = \"msi\"")
+	if isUserMSI {
+		fmt.Println("$env:AZURE_CLIENT_ID = \"your-user-assigned-msi-client-id\"")
+	}
 }
