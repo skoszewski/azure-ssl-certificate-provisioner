@@ -21,7 +21,7 @@ while getopts "hs:g:z:" opt; do
         *|h)
             echo "Usage: $0 [ -s subscription_id ] -g resource_group [ -z dns_zone ]" >&2
             echo "       Alternatively, set AZURE_RESOURCE_GROUP, AZURE_DNS_ZONE, and AZURE_SUBSCRIPTION_ID environment variables." >&2
-            echo "       AZURE_TENANT_ID, AZURE_CLIENT_ID, and AZURE_CLIENT_SECRET environment variables must be set for lego DNS plugin authentication." >&2
+            echo "       AZURE_TENANT_ID and AZURE_CLIENT_ID environment variables must be set for lego DNS plugin authentication." >&2
             exit 1
             ;;
     esac
@@ -36,7 +36,6 @@ REQUIRED_VARS=(
     AZURE_SUBSCRIPTION_ID
     AZURE_TENANT_ID
     AZURE_CLIENT_ID
-    AZURE_CLIENT_SECRET
     LEGO_EMAIL
 )
 
@@ -46,6 +45,11 @@ for VAR in "${REQUIRED_VARS[@]}"; do
         exit 1
     fi
 done
+
+if [ "${AZURE_AUTH_METHOD:-}" != "msi" ] && [ -z "${AZURE_CLIENT_SECRET:-}" ]; then
+    echo "Error: Either AZURE_AUTH_METHOD or AZURE_CLIENT_SECRET environment variable must be set for lego DNS plugin authentication." >&2
+    exit 1
+fi
 
 # Enumerate zones in the resource group if AZURE_DNS_ZONE is not provided
 if [ -z "$AZURE_DNS_ZONE" ]; then
