@@ -49,6 +49,10 @@ RUN LEGO_URL=$(curl -s https://api.github.com/repos/go-acme/lego/releases/latest
     chmod +x /usr/local/bin/lego
 
 WORKDIR /root
-COPY entrypoint.sh /entrypoint.sh
+
+COPY scripts/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
+
+COPY scripts/request-or-renew.sh .
+
 ENTRYPOINT ["/entrypoint.sh"]

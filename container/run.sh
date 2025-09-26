@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+ARCH="${1:-amd64}"
+
 # Environment variables to pass into the container
 ENVIRONMENT_VARIABLES=(
     AZURE_TENANT_ID
@@ -12,13 +14,20 @@ ENVIRONMENT_VARIABLES=(
     DNS_RESOLVERS
 )
 
+# Chceck, if the environment variables are set
+for VAR in "${ENVIRONMENT_VARIABLES[@]}"; do
+    if [ -z "${!VAR:-}" ]; then
+        echo "Error: Environment variable $VAR is not set."
+        exit 1
+    fi
+done
+
+ENV_PARAMS=$(printf -- '-e %q ' "${ENVIRONMENT_VARIABLES[@]}")
+
 docker run \
-    $(printf -- '-e %q ' "${ENVIRONMENT_VARIABLES[@]}") \
+    $ENV_PARAMS \
     -v ./.lego:/root/.lego \
     -v ./.azure:/root/.azure \
-    -v ./lego.env.sh:/root/lego.env.sh:ro \
-    -v ./request-or-renew.sh:/root/request-or-renew.sh:ro \
-    -v ./az-login.sh:/root/az-login.sh:ro \
-    -v ./scripts:/root/scripts:rw \
-    --arch arm64 \
-    --rm -it sktest $@
+    -v ./scripts:/root/scripts:ro \
+    --arch $ARCH \
+    --rm -it "skdomlab.azurecr.io/azure-certificate-provisioner:latest" $@

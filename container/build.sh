@@ -1,3 +1,6 @@
 #!/usr/bin/env bash
 
-docker build --build-arg ARCH=arm64 -t sktest .
+ARCH="${1:-amd64}"
+IMAGE_NAME="skdomlab.azurecr.io/azure-certificate-provisioner:latest"
+echo "Building Docker image: $IMAGE_NAME"
+docker build --arch $ARCH -t $IMAGE_NAME .
