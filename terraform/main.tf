@@ -115,6 +115,13 @@ resource "azurerm_container_app_job" "provisioner" {
   workload_profile_name        = "Consumption"
 
   template {
+    volume {
+      name          = "provisioner"
+      storage_name  = "provisioner"
+      storage_type  = "AzureFile"
+      mount_options = "dir_mode=0700,file_mode=0600,uid=0,gid=0"
+    }
+
     container {
       image  = var.image_name
       name   = var.project_name
@@ -122,8 +129,13 @@ resource "azurerm_container_app_job" "provisioner" {
       memory = "1Gi"
 
       args = [
-        "list"
+        "run"
       ]
+
+      volume_mounts {
+        name = "provisioner"
+        path = "/root"
+      }
 
       env {
         name  = "AZURE_SUBSCRIPTION_ID"
@@ -175,6 +187,7 @@ resource "azurerm_container_app_job" "provisioner" {
   registry {
     server   = "skdomlab.azurecr.io"
     identity = azurerm_user_assigned_identity.provisioner_identity.id
+
   }
 
   depends_on = [azurerm_role_assignment.provisioner_acr_pul]
