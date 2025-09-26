@@ -1,14 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# This script's behavior can be controlled via environment variables or command line arguments.
 AZURE_RESOURCE_GROUP="${AZURE_RESOURCE_GROUP:-}"
 AZURE_DNS_ZONE="${AZURE_DNS_ZONE:-}"
 DAYS_REMAINING_THRESHOLD=${DAYS_REMAINING_THRESHOLD:-7}
-LEGO_PATH="$(pwd)/.lego"
+LEGO_PATH="${LEGO_PATH:-$(pwd)/.lego}"
+STAGING_URL="https://acme-staging-v02.api.letsencrypt.org/directory"
+OFFICIAL_URL="https://acme-v02.api.letsencrypt.org/directory"
+SERVER_URL="${SERVER_URL:-$STAGING_URL}"
 
 # Parse command line arguments
 while getopts "hs:g:z:" opt; do
     case $opt in
+        e)
+            LEGO_EMAIL="$OPTARG"
+            ;;
         g)
             AZURE_RESOURCE_GROUP="$OPTARG"
             ;;
@@ -140,14 +147,13 @@ for ZONE in $ZONES; do
             if [ "$EXISTING_THUMBPRINT" != "$NEW_THUMBPRINT" ]; then
                 az keyvault certificate import \
                     --vault-name "kv-${AZURE_RESOURCE_GROUP}" \
-                    --name "cert-${RECORD//./-}-${ZONE//./-}" \
+                    --name "$CERT_NAME" \
                     --file "$LEGO_PFX_PATH" \
-                    --password "changeit"
+                    --password "changeit" 2>/dev/null >/dev/null
+                echo "Certificate for $RECORD.$ZONE uploaded to Key Vault $VAULT_NAME as $CERT_NAME"
             else
                 echo "No upload needed for $RECORD.$ZONE."
             fi
         fi
     done
 done
-
-# az keyvault certificate show --vault-name "$VAULT_NAME" --name "$CERT_NAME" &> /dev/null
