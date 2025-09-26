@@ -47,3 +47,8 @@ RUN LEGO_URL=$(curl -s https://api.github.com/repos/go-acme/lego/releases/latest
     tar -x -C /usr/local/bin -z -f /tmp/lego.tar.gz lego && \
     rm /tmp/lego.tar.gz && \
     chmod +x /usr/local/bin/lego
+
+WORKDIR /root
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
