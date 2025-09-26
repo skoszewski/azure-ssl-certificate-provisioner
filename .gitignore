@@ -15,6 +15,9 @@ azure-ssl-certificate-provisioner.exe
 # Ignore LEGO files
 **/.lego
 
+# Ingnore Azure CLI files
+**/.azure
+
 # Ignore build artifacts
 bin/
 build/
