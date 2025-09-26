@@ -9,6 +9,7 @@ LEGO_PATH="${LEGO_PATH:-$(pwd)/.lego}"
 STAGING_URL="https://acme-staging-v02.api.letsencrypt.org/directory"
 OFFICIAL_URL="https://acme-v02.api.letsencrypt.org/directory"
 SERVER_URL="${SERVER_URL:-$STAGING_URL}"
+DNS_RESOLVERS="${DNS_RESOLVERS:-}"
 
 # Parse command line arguments
 while getopts "hs:g:z:" opt; do
@@ -74,6 +75,17 @@ else
     ZONES="$AZURE_DNS_ZONE"
 fi
 
+DNS_RESOLVER_PARAMS=""
+# Convert the list DNS resolvers into a string of lego dns.resolvers parameters
+if [ -n "$DNS_RESOLVERS" ]; then
+    read -r -a RESOLVER_ARRAY <<< "$DNS_RESOLVERS"
+    for RESOLVER in "${RESOLVER_ARRAY[@]}"; do
+        DNS_RESOLVER_PARAMS+="--dns.resolvers $RESOLVER "
+    done
+    DNS_RESOLVER_PARAMS=$(echo "$DNS_RESOLVER_PARAMS" | xargs)
+    echo "Using custom DNS resolvers: $DNS_RESOLVERS"
+fi
+
 # Enumerate zones
 for ZONE in $ZONES; do
     echo "Processing DNS zone '$ZONE'..."
@@ -106,6 +118,7 @@ for ZONE in $ZONES; do
                 --email "$LEGO_EMAIL" \
                 --path "$LEGO_PATH" \
                 --dns azuredns \
+                $DNS_RESOLVER_PARAMS \
                 --domains "$RECORD.$ZONE" \
                 renew --days "$DAYS_REMAINING_THRESHOLD"
             then
@@ -123,6 +136,7 @@ for ZONE in $ZONES; do
                 --email "$LEGO_EMAIL" \
                 --path "$LEGO_PATH" \
                 --dns azuredns \
+                $DNS_RESOLVER_PARAMS \
                 --domains "$RECORD.$ZONE" \
                 --pfx \
                 --pfx.format "SHA256" \
