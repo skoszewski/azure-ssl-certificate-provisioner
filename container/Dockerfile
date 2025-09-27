@@ -2,7 +2,16 @@ FROM ubuntu:latest
 
 # Install prerequisites
 RUN apt-get update && \
-    apt-get install -y curl jq apt-transport-https ca-certificates gnupg libicu74 && \
+    apt-get install -y \
+        curl \
+        jq \
+        apt-transport-https \
+        ca-certificates \
+        gnupg \
+        python3 \
+        python3-venv \
+        python3-pip \
+        libicu74 && \
     rm -rf /var/lib/apt/lists/*
 
 # Install Microsoft GnuPG key
