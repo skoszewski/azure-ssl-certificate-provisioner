@@ -24,8 +24,7 @@ ENV_PARAMS=$(printf -- '-e %q ' "${ENVIRONMENT_VARIABLES[@]}")
 
 docker run \
     $ENV_PARAMS \
-    -v ./.lego:/root/.lego \
-    -v ./.azure:/root/.azure \
+    -v ./root:/root:rw \
     -v ./scripts:/root/scripts:ro \
     --pull never \
     --rm -it "azure-certificate-provisioner:latest" $@
