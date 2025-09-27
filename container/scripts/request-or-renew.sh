@@ -59,6 +59,19 @@ if [ "${AZURE_AUTH_METHOD:-}" != "msi" ] && [ -z "${AZURE_CLIENT_SECRET:-}" ]; t
     exit 1
 fi
 
+# Login to Azure using a service principal
+if "$AZURE_AUTH_METHOD" == "msi"; then
+    echo "Logging in to Azure using Managed Identity..."
+    if [ -z "${AZURE_CLIENT_ID:-}" ]; then
+        az login --identity >/dev/null
+    else
+        az login --identity --client-id"$AZURE_CLIENT_ID" >/dev/null
+    fi
+else
+    echo "Logging in to Azure using Service Principal..."
+    az login --service-principal --username "$AZURE_CLIENT_ID" --password "$AZURE_CLIENT_SECRET" --tenant "$AZURE_TENANT_ID" >/dev/null
+fi
+
 # Enumerate zones in the resource group if AZURE_DNS_ZONE is not provided
 if [ -z "$AZURE_DNS_ZONE" ]; then
     echo "Fetching DNS zones in resource group '$AZURE_RESOURCE_GROUP'..."
