@@ -12,6 +12,17 @@ fi
 
 echo "Starting the certificate request or renewal process..."
 echo "Build Number: $(printf '%06d' $(cat /build_number.txt))"
-test -f /root/request-or-renew.sh && exec /root/request-or-renew.sh "$@"
-echo "No request-or-renew.sh script found. Exiting."
-exit 1
+
+if [ ! -f /root/request-or-renew.sh ]; then
+    echo "No request-or-renew.sh script found. Exiting."
+    echo "Diagnostics information:"
+    echo
+    echo "Root's home directory contents:"
+    ls -la /root
+    echo
+    echo "/ directory contents:"
+    ls -la /
+    exit 1
+fi
+
+exec /root/request-or-renew.sh "$@"
