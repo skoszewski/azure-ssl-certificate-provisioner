@@ -128,10 +128,6 @@ resource "azurerm_container_app_job" "provisioner" {
       cpu    = 0.5
       memory = "1Gi"
 
-      args = [
-        "run"
-      ]
-
       volume_mounts {
         name = "provisioner"
         path = "/root"

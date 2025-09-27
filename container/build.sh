@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 
-ARCH="${1:-amd64}"
-IMAGE_NAME="skdomlab.azurecr.io/azure-certificate-provisioner:latest"
-echo "Building Docker image: $IMAGE_NAME"
-docker build --arch $ARCH -t $IMAGE_NAME .
+if [ ! -f serial.txt ]; then
+    echo "0" > serial.txt
+fi
+SERIAL=$(cat serial.txt)
+IMAGE_NAME="azure-certificate-provisioner:latest"
+echo "Building container image: $IMAGE_NAME"
+if podman build --build-arg SERIAL=$SERIAL -t $IMAGE_NAME .; then
+    echo "Container image built successfully."
+    echo $((SERIAL + 1)) > serial.txt
+else
+    echo "Failed to build the container image."
+    exit 1
+fi

@@ -11,6 +11,7 @@ if [[ "${1:-}" == "shell" ]]; then
 fi
 
 echo "Starting the certificate request or renewal process..."
+echo "Build Number: $(printf '%06d' $(cat /build_number.txt))"
 test -f /root/request-or-renew.sh && exec /root/request-or-renew.sh "$@"
 echo "No request-or-renew.sh script found. Exiting."
 exit 1

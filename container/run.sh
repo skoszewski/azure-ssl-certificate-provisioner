@@ -2,8 +2,6 @@
 
 set -euo pipefail
 
-ARCH="${1:-amd64}"
-
 # Environment variables to pass into the container
 ENVIRONMENT_VARIABLES=(
     AZURE_TENANT_ID
@@ -29,5 +27,5 @@ docker run \
     -v ./.lego:/root/.lego \
     -v ./.azure:/root/.azure \
     -v ./scripts:/root/scripts:ro \
-    --arch $ARCH \
-    --rm -it "skdomlab.azurecr.io/azure-certificate-provisioner:latest" $@
+    --pull never \
+    --rm -it "azure-certificate-provisioner:latest" $@

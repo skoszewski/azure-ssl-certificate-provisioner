@@ -51,8 +51,11 @@ RUN LEGO_URL=$(curl -s https://api.github.com/repos/go-acme/lego/releases/latest
 WORKDIR /root
 
 COPY scripts/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+COPY scripts/request-or-renew.sh /root/
 
-COPY scripts/request-or-renew.sh .
+# Burn the serial number into the image for tracking purposes
+ARG SERIAL="0"
+ENV SERIAL=${SERIAL}
+RUN echo $SERIAL > /build_number.txt
 
 ENTRYPOINT ["/entrypoint.sh"]
