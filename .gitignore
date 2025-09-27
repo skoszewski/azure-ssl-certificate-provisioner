@@ -41,3 +41,5 @@ out/
 
 # Environment files
 **/*.env.sh
+**/serial.txt
+**/build_number.txt
