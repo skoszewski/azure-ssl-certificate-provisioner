@@ -6,7 +6,7 @@ fi
 SERIAL=$(cat serial.txt)
 IMAGE_NAME="azure-certificate-provisioner:latest"
 echo "Building container image: $IMAGE_NAME"
-if podman build --build-arg SERIAL=$SERIAL -t $IMAGE_NAME .; then
+if docker build --build-arg SERIAL=$SERIAL -t $IMAGE_NAME .; then
     echo "Container image built successfully."
     echo $((SERIAL + 1)) > serial.txt
 else
