@@ -4,6 +4,7 @@ set -euo pipefail
 # This script's behavior can be controlled via environment variables or command line arguments.
 AZURE_RESOURCE_GROUP="${AZURE_RESOURCE_GROUP:-}"
 AZURE_DNS_ZONE="${AZURE_DNS_ZONE:-}"
+AZURE_AUTH_METHOD="${AZURE_AUTH_METHOD:-}"
 DAYS_REMAINING_THRESHOLD=${DAYS_REMAINING_THRESHOLD:-7}
 LEGO_PATH="${LEGO_PATH:-$(pwd)/.lego}"
 STAGING_URL="https://acme-staging-v02.api.letsencrypt.org/directory"
@@ -35,6 +36,19 @@ while getopts "hs:g:z:" opt; do
     esac
 done
 
+# Login to Azure using a service principal
+if [ "$AZURE_AUTH_METHOD" == "msi" ]; then
+    echo "Logging in to Azure using Managed Identity..."
+    if [ -z "${AZURE_CLIENT_ID:-}" ]; then
+        az login --identity >/dev/null
+    else
+        az login --identity --client-id "$AZURE_CLIENT_ID" >/dev/null
+    fi
+else
+    echo "Logging in to Azure using Service Principal..."
+    az login --service-principal --username "$AZURE_CLIENT_ID" --password "$AZURE_CLIENT_SECRET" --tenant "$AZURE_TENANT_ID" >/dev/null
+fi
+
 # Set subscription ID from Azure CLI if not provided nor set in environment
 AZURE_SUBSCRIPTION_ID="${AZURE_SUBSCRIPTION_ID:-$(az account show --query id -o tsv)}"
 
@@ -57,19 +71,6 @@ done
 if [ "${AZURE_AUTH_METHOD:-}" != "msi" ] && [ -z "${AZURE_CLIENT_SECRET:-}" ]; then
     echo "Error: Either AZURE_AUTH_METHOD or AZURE_CLIENT_SECRET environment variable must be set for lego DNS plugin authentication." >&2
     exit 1
-fi
-
-# Login to Azure using a service principal
-if "$AZURE_AUTH_METHOD" == "msi"; then
-    echo "Logging in to Azure using Managed Identity..."
-    if [ -z "${AZURE_CLIENT_ID:-}" ]; then
-        az login --identity >/dev/null
-    else
-        az login --identity --client-id"$AZURE_CLIENT_ID" >/dev/null
-    fi
-else
-    echo "Logging in to Azure using Service Principal..."
-    az login --service-principal --username "$AZURE_CLIENT_ID" --password "$AZURE_CLIENT_SECRET" --tenant "$AZURE_TENANT_ID" >/dev/null
 fi
 
 # Enumerate zones in the resource group if AZURE_DNS_ZONE is not provided
