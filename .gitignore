@@ -43,3 +43,6 @@ out/
 **/*.env.sh
 **/serial.txt
 **/build_number.txt
+
+# VS Code workspace settings
+**/*.code-workspace
