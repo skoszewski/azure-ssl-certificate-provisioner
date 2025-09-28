@@ -5,8 +5,8 @@ prototypes
 **/go.sum
 
 # Ignore environment variable files
-.env
-.env.*
+**/*.env
+**/.env.*
 
 # Ignore binary files
 azure-ssl-certificate-provisioner
