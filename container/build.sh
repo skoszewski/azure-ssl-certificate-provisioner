@@ -39,7 +39,8 @@ else
     exit 1
 fi
 
-if grep -qE -- '(-p|--push)' <<< "$1"; then
+PUSH_ARG="${1:-}"
+if grep -qE -- '(-p|--push)' <<< "$PUSH_ARG"; then
     echo "Pushing container image to repository..."
     docker push "$REPOSITORY/$IMAGE_NAME:$TAG"
 fi
