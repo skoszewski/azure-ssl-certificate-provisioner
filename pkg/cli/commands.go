@@ -72,9 +72,9 @@ func (c *Commands) setupFlagBindings(runCmd, listCmd, createSPCmd *cobra.Command
 	viper.BindPFlag("sp-name", createSPCmd.Flags().Lookup("name"))
 	viper.BindPFlag("sp-tenant-id", createSPCmd.Flags().Lookup("tenant-id"))
 	viper.BindPFlag("sp-subscription-id", createSPCmd.Flags().Lookup("subscription-id"))
-	viper.BindPFlag("sp-assign-dns-role", createSPCmd.Flags().Lookup("assign-dns-role"))
 	viper.BindPFlag("sp-resource-group", createSPCmd.Flags().Lookup("resource-group"))
 	viper.BindPFlag("sp-kv-name", createSPCmd.Flags().Lookup("kv-name"))
 	viper.BindPFlag("sp-kv-resource-group", createSPCmd.Flags().Lookup("kv-resource-group"))
+	viper.BindPFlag("sp-no-roles", createSPCmd.Flags().Lookup("no-roles"))
 	viper.BindPFlag("sp-shell", createSPCmd.Flags().Lookup("shell"))
 }

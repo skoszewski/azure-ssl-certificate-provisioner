@@ -15,7 +15,7 @@ func (c *Commands) createServicePrincipalCommand() *cobra.Command {
 	var createSPCmd = &cobra.Command{
 		Use:   "create-service-principal",
 		Short: "Create Azure service principal for SSL certificate provisioning",
-		Long:  `Create an Azure AD application and service principal with optional DNS Zone Contributor role assignment.`,
+		Long:  `Create an Azure AD application and service principal with optional role assignments for DNS and Key Vault access.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			c.runCreateServicePrincipal()
 		},
@@ -24,10 +24,10 @@ func (c *Commands) createServicePrincipalCommand() *cobra.Command {
 	createSPCmd.Flags().StringP("name", "n", "", "Display name for the Azure AD application (required)")
 	createSPCmd.Flags().StringP("tenant-id", "t", "", "Azure tenant ID (required)")
 	createSPCmd.Flags().StringP("subscription-id", "s", "", "Azure subscription ID (required)")
-	createSPCmd.Flags().Bool("assign-dns-role", false, "Assign DNS Zone Contributor role to the specified resource group")
 	createSPCmd.Flags().StringP("resource-group", "g", "", "Resource group name for DNS Zone Contributor role assignment")
 	createSPCmd.Flags().StringP("kv-name", "", "", "Key Vault name for Certificates Officer role assignment")
 	createSPCmd.Flags().StringP("kv-resource-group", "", "", "Resource group name for the Key Vault")
+	createSPCmd.Flags().Bool("no-roles", false, "Disable all role assignments even if other role flags are specified")
 	createSPCmd.Flags().StringP("shell", "", utilities.GetDefaultShell(), "Shell type for output template (bash, powershell)")
 
 	// Mark required flags
@@ -43,11 +43,14 @@ func (c *Commands) runCreateServicePrincipal() {
 	displayName := viper.GetString("sp-name")
 	tenantID := viper.GetString("sp-tenant-id")
 	subscriptionID := viper.GetString("sp-subscription-id")
-	assignRole := viper.GetBool("sp-assign-dns-role")
 	resourceGroup := viper.GetString("sp-resource-group")
 	keyVaultName := viper.GetString("sp-kv-name")
 	keyVaultResourceGroup := viper.GetString("sp-kv-resource-group")
+	noRoles := viper.GetBool("sp-no-roles")
 	shell := viper.GetString("sp-shell")
+
+	// Automatically assign DNS role if resource group is provided (unless --no-roles is specified)
+	assignRole := resourceGroup != "" && !noRoles
 
 	if displayName == "" {
 		log.Fatalf("Display name is required. Use --name flag.")
@@ -61,17 +64,21 @@ func (c *Commands) runCreateServicePrincipal() {
 		log.Fatalf("Subscription ID is required. Use --subscription-id flag.")
 	}
 
-	if assignRole && resourceGroup == "" {
-		log.Fatalf("Resource group is required when assigning DNS role. Use --resource-group flag.")
-	}
-
-	// If kv-resource-group is not specified but kv-name is, use resource-group as fallback
-	if keyVaultName != "" && keyVaultResourceGroup == "" {
-		keyVaultResourceGroup = resourceGroup
-		if keyVaultResourceGroup == "" {
-			log.Fatalf("Resource group is required when assigning Key Vault role. Use --resource-group or --kv-resource-group flag.")
+	// Override role assignments if --no-roles is specified
+	if noRoles {
+		assignRole = false
+		keyVaultName = ""
+		keyVaultResourceGroup = ""
+		log.Printf("Role assignments disabled by --no-roles flag")
+	} else {
+		// If kv-resource-group is not specified but kv-name is, use resource-group as fallback
+		if keyVaultName != "" && keyVaultResourceGroup == "" {
+			keyVaultResourceGroup = resourceGroup
+			if keyVaultResourceGroup == "" {
+				log.Fatalf("Resource group is required when assigning Key Vault role. Use --resource-group or --kv-resource-group flag.")
+			}
+			log.Printf("Key Vault role assignment: resource_group=%s, key_vault=%s", keyVaultResourceGroup, keyVaultName)
 		}
-		log.Printf("Key Vault role assignment: resource_group=%s, key_vault=%s", keyVaultResourceGroup, keyVaultName)
 	}
 
 	log.Printf("Service principal creation started: %s", displayName)
@@ -82,7 +89,7 @@ func (c *Commands) runCreateServicePrincipal() {
 		log.Fatalf("Failed to create Azure clients: %v", err)
 	}
 
-	spInfo, err := azureClients.CreateServicePrincipal(displayName, tenantID, subscriptionID, assignRole, resourceGroup, keyVaultName, keyVaultResourceGroup)
+	spInfo, err := azureClients.CreateServicePrincipal(displayName, tenantID, subscriptionID, assignRole, resourceGroup, keyVaultName, keyVaultResourceGroup, noRoles)
 	if err != nil {
 		log.Fatalf("Failed to create service principal: %v", err)
 	}

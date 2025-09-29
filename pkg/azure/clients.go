@@ -67,7 +67,7 @@ func NewClients(subscriptionID, vaultURL string) (*Clients, error) {
 }
 
 // CreateServicePrincipal creates a new Azure AD application and service principal
-func (c *Clients) CreateServicePrincipal(displayName, tenantID, subscriptionID string, assignDNSRole bool, resourceGroupName, keyVaultName, keyVaultResourceGroup string) (*types.ServicePrincipalInfo, error) {
+func (c *Clients) CreateServicePrincipal(displayName, tenantID, subscriptionID string, assignDNSRole bool, resourceGroupName, keyVaultName, keyVaultResourceGroup string, noRoles bool) (*types.ServicePrincipalInfo, error) {
 	// Validate provided tenant and subscription IDs
 	if tenantID == "" {
 		return nil, fmt.Errorf("tenant ID is required")
@@ -133,21 +133,26 @@ func (c *Clients) CreateServicePrincipal(displayName, tenantID, subscriptionID s
 		TenantID:           tenantID,
 	}
 
-	// Optionally assign DNS Zone Contributor role
-	if assignDNSRole && resourceGroupName != "" {
-		if err := c.assignDNSZoneContributorRole(spInfo, resourceGroupName); err != nil {
-			log.Printf("DNS Zone Contributor role assignment failed: resource_group=%s, error=%v", resourceGroupName, err)
-		} else {
-			log.Printf("DNS Zone Contributor role assigned: resource_group=%s", resourceGroupName)
+	// Skip role assignments if noRoles is true
+	if noRoles {
+		log.Printf("Role assignments skipped due to noRoles parameter")
+	} else {
+		// Optionally assign DNS Zone Contributor role
+		if assignDNSRole && resourceGroupName != "" {
+			if err := c.assignDNSZoneContributorRole(spInfo, resourceGroupName); err != nil {
+				log.Printf("DNS Zone Contributor role assignment failed: resource_group=%s, error=%v", resourceGroupName, err)
+			} else {
+				log.Printf("DNS Zone Contributor role assigned: resource_group=%s", resourceGroupName)
+			}
 		}
-	}
 
-	// Optionally assign Key Vault Certificates Officer role
-	if keyVaultName != "" && keyVaultResourceGroup != "" {
-		if err := c.assignKeyVaultCertificatesOfficerRole(spInfo, keyVaultName, keyVaultResourceGroup); err != nil {
-			log.Printf("Key Vault Certificates Officer role assignment failed: key_vault=%s, error=%v", keyVaultName, err)
-		} else {
-			log.Printf("Key Vault Certificates Officer role assigned: key_vault=%s", keyVaultName)
+		// Optionally assign Key Vault Certificates Officer role
+		if keyVaultName != "" && keyVaultResourceGroup != "" {
+			if err := c.assignKeyVaultCertificatesOfficerRole(spInfo, keyVaultName, keyVaultResourceGroup); err != nil {
+				log.Printf("Key Vault Certificates Officer role assignment failed: key_vault=%s, error=%v", keyVaultName, err)
+			} else {
+				log.Printf("Key Vault Certificates Officer role assigned: key_vault=%s", keyVaultName)
+			}
 		}
 	}
 
