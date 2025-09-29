@@ -2,6 +2,8 @@ package cli
 
 import (
 	"github.com/spf13/cobra"
+
+	"azure-ssl-certificate-provisioner/internal/utilities"
 )
 
 // createEnvironmentCommand creates the environment command
@@ -11,9 +13,10 @@ func (c *Commands) createEnvironmentCommand() *cobra.Command {
 		Short: "Generate environment variable templates",
 		Long:  `Generate Bash or PowerShell environment variable templates for required configuration.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			// Default to bash if no subcommand is specified
+			// Use OS-appropriate shell if no subcommand is specified
 			msiType, _ := cmd.Flags().GetString("use-msi")
-			c.templateGen.GenerateEnvironmentTemplate("bash", msiType)
+			defaultShell := utilities.GetDefaultShell()
+			c.templateGen.GenerateEnvironmentTemplate(defaultShell, msiType)
 		},
 	}
 

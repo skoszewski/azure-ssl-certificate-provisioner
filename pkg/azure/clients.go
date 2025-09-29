@@ -4,7 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
+	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/keyvault/azcertificates"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
@@ -151,7 +155,12 @@ func (c *Clients) CreateServicePrincipal(displayName, tenantID, subscriptionID s
 }
 
 func (c *Clients) assignDNSZoneContributorRole(spInfo *types.ServicePrincipalInfo, resourceGroupName string) error {
-	authClient, err := armauthorization.NewRoleAssignmentsClient(spInfo.SubscriptionID, c.Credential, nil)
+	clientOptions := &arm.ClientOptions{
+		ClientOptions: policy.ClientOptions{
+			APIVersion: "2022-04-01",
+		},
+	}
+	authClient, err := armauthorization.NewRoleAssignmentsClient(spInfo.SubscriptionID, c.Credential, clientOptions)
 	if err != nil {
 		return fmt.Errorf("failed to create authorization client: %v", err)
 	}
@@ -172,8 +181,33 @@ func (c *Clients) assignDNSZoneContributorRole(spInfo *types.ServicePrincipalInf
 		},
 	}
 
-	_, err = authClient.Create(context.Background(), scope, roleAssignmentID, roleAssignmentProperties, nil)
-	if err != nil {
+	// Retry role assignment if PrincipalNotFound error occurs
+	maxRetries := 5
+	baseWaitTime := time.Second
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		_, err = authClient.Create(context.Background(), scope, roleAssignmentID, roleAssignmentProperties, nil)
+		if err == nil {
+			if attempt > 1 {
+				log.Printf("DNS Zone Contributor role assignment succeeded after %d attempt(s)", attempt)
+			}
+			return nil
+		}
+
+		// Check if this is a PrincipalNotFound error
+		if strings.Contains(err.Error(), "PrincipalNotFound") || strings.Contains(err.Error(), "does not exist") {
+			if attempt == maxRetries {
+				return fmt.Errorf("failed to create role assignment after %d attempts, principal not found: %v", maxRetries, err)
+			}
+
+			waitTime := baseWaitTime * time.Duration(attempt)
+			log.Printf("Principal not found for DNS role assignment (attempt %d/%d), waiting %v before retry",
+				attempt, maxRetries, waitTime)
+			time.Sleep(waitTime)
+			continue
+		}
+
+		// For other errors, don't retry
 		return fmt.Errorf("failed to create role assignment: %v", err)
 	}
 
@@ -181,7 +215,12 @@ func (c *Clients) assignDNSZoneContributorRole(spInfo *types.ServicePrincipalInf
 }
 
 func (c *Clients) assignKeyVaultCertificatesOfficerRole(spInfo *types.ServicePrincipalInfo, keyVaultName, keyVaultResourceGroup string) error {
-	authClient, err := armauthorization.NewRoleAssignmentsClient(spInfo.SubscriptionID, c.Credential, nil)
+	clientOptions := &arm.ClientOptions{
+		ClientOptions: policy.ClientOptions{
+			APIVersion: "2022-04-01",
+		},
+	}
+	authClient, err := armauthorization.NewRoleAssignmentsClient(spInfo.SubscriptionID, c.Credential, clientOptions)
 	if err != nil {
 		return fmt.Errorf("failed to create authorization client: %v", err)
 	}
@@ -202,8 +241,33 @@ func (c *Clients) assignKeyVaultCertificatesOfficerRole(spInfo *types.ServicePri
 		},
 	}
 
-	_, err = authClient.Create(context.Background(), scope, roleAssignmentID, roleAssignmentProperties, nil)
-	if err != nil {
+	// Retry role assignment if PrincipalNotFound error occurs
+	maxRetries := 5
+	baseWaitTime := time.Second
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		_, err = authClient.Create(context.Background(), scope, roleAssignmentID, roleAssignmentProperties, nil)
+		if err == nil {
+			if attempt > 1 {
+				log.Printf("Key Vault Certificates Officer role assignment succeeded after %d attempt(s)", attempt)
+			}
+			return nil
+		}
+
+		// Check if this is a PrincipalNotFound error
+		if strings.Contains(err.Error(), "PrincipalNotFound") || strings.Contains(err.Error(), "does not exist") {
+			if attempt == maxRetries {
+				return fmt.Errorf("failed to create role assignment after %d attempts, principal not found: %v", maxRetries, err)
+			}
+
+			waitTime := baseWaitTime * time.Duration(attempt)
+			log.Printf("Principal not found for Key Vault role assignment (attempt %d/%d), waiting %v before retry",
+				attempt, maxRetries, waitTime)
+			time.Sleep(waitTime)
+			continue
+		}
+
+		// For other errors, don't retry
 		return fmt.Errorf("failed to create role assignment: %v", err)
 	}
 

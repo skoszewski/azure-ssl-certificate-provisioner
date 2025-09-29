@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"azure-ssl-certificate-provisioner/internal/utilities"
 	"azure-ssl-certificate-provisioner/pkg/azure"
 )
 
@@ -27,7 +28,7 @@ func (c *Commands) createServicePrincipalCommand() *cobra.Command {
 	createSPCmd.Flags().StringP("resource-group", "g", "", "Resource group name for DNS Zone Contributor role assignment")
 	createSPCmd.Flags().StringP("kv-name", "", "", "Key Vault name for Certificates Officer role assignment")
 	createSPCmd.Flags().StringP("kv-resource-group", "", "", "Resource group name for the Key Vault")
-	createSPCmd.Flags().StringP("shell", "", "bash", "Shell type for output template (bash, powershell)")
+	createSPCmd.Flags().StringP("shell", "", utilities.GetDefaultShell(), "Shell type for output template (bash, powershell)")
 
 	// Mark required flags
 	createSPCmd.MarkFlagRequired("name")
