@@ -12,26 +12,23 @@ function Import-EnvFile {
     )
     
     Get-Content -Path $EnvFilePath | ForEach-Object {
-        if ($_ -match '^\s*#') {
+        if ($_ -match '^#') {
             # Skip comment lines
             return
         }
-
-        if ($_ -match '^\s*$') {
+        if ($_ -match '^$') {
             # Skip empty lines
             return
         }
-
-        $parts = $_ -split '=', 2
-    
-        if ($parts.Length -eq 2) {
-            $key = $parts[0].Trim()
-            $value = $parts[1].Trim()
+        if ($_ -match '^[A-Za-z_][A-Za-z0-9_]*=.*$') {
+            $parts = $_ -split '=', 2
+            $key = $parts[0]
+            $value = $parts[1]
             [System.Environment]::SetEnvironmentVariable($key, $value)
             Write-Verbose "Set environment variable: $key"
         }
         else {
-            Write-Warning "Ignoring invalid line in env file: $_"
+            Write-Warning "Ignoring invalid or non-Docker env line: $_"
         }
     }
 }
