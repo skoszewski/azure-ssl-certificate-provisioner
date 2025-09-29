@@ -2,11 +2,14 @@ package azure
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
-	"encoding/base64"
+	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
 	"log"
+	"math/big"
 	"os"
 	"strings"
 	"time"
@@ -56,7 +59,10 @@ func NewClients(subscriptionID, vaultURL string) (*Clients, error) {
 		return nil, fmt.Errorf("failed to create Key Vault client: %v", err)
 	}
 
-	graphClient, err := msgraph.NewGraphServiceClientWithCredentials(cred, []string{"https://graph.microsoft.com/.default"})
+	// Request specific Graph API scopes for application management
+	graphClient, err := msgraph.NewGraphServiceClientWithCredentials(cred, []string{
+		"https://graph.microsoft.com/.default",
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Graph client: %v", err)
 	}
@@ -297,44 +303,143 @@ func (c *Clients) assignKeyVaultCertificatesOfficerRole(spInfo *types.ServicePri
 	return nil
 }
 
-// setupCertificateAuth configures certificate-based authentication for the Azure AD application
+// setupCertificateAuth generates a self-signed certificate and configures certificate-based authentication
 func (c *Clients) setupCertificateAuth(applicationID, privateKeyPath, certificatePath string) error {
-	// Read the certificate file
-	certData, err := os.ReadFile(certificatePath)
+	// Generate self-signed certificate and private key
+	cert, privateKey, err := c.generateSelfSignedCertificate(applicationID)
 	if err != nil {
-		return fmt.Errorf("failed to read certificate file: %v", err)
+		return fmt.Errorf("failed to generate self-signed certificate: %v", err)
 	}
 
-	// Parse the certificate
-	block, _ := pem.Decode(certData)
-	if block == nil {
-		return fmt.Errorf("failed to decode PEM certificate")
-	}
-
-	cert, err := x509.ParseCertificate(block.Bytes)
+	// Save private key to file
+	privateKeyPEM := c.encodePrivateKeyToPEM(privateKey)
+	err = os.WriteFile(privateKeyPath, privateKeyPEM, 0600)
 	if err != nil {
-		return fmt.Errorf("failed to parse certificate: %v", err)
+		return fmt.Errorf("failed to write private key file: %v", err)
 	}
+	log.Printf("Private key saved to: %s", privateKeyPath)
 
-	// Encode certificate as base64
-	certBase64 := base64.StdEncoding.EncodeToString(cert.Raw)
+	// Save certificate to file
+	certPEM := c.encodeCertificateToPEM(cert)
+	err = os.WriteFile(certificatePath, certPEM, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write certificate file: %v", err)
+	}
+	log.Printf("Certificate saved to: %s", certificatePath)
 
-	// Create key credential for the application
+	// Upload the certificate to Azure AD Application to enable certificate authentication
 	keyCredential := models.NewKeyCredential()
-	keyCredential.SetKey([]byte(certBase64))
+
+	// Set certificate data (raw DER bytes)
+	keyCredential.SetKey(cert.Raw)
+
+	// Set required properties for certificate authentication
 	displayName := "Generated certificate by azure-ssl-certificate-provisioner"
 	keyCredential.SetDisplayName(&displayName)
 
-	// Add the certificate to the application
-	addKeyRequest := applications.NewItemAddKeyPostRequestBody()
-	addKeyRequest.SetKeyCredential(keyCredential)
+	// Set the type to AsymmetricX509Cert as required by Azure AD
+	credType := "AsymmetricX509Cert"
+	keyCredential.SetTypeEscaped(&credType)
 
-	_, err = c.Graph.Applications().ByApplicationId(applicationID).AddKey().Post(context.Background(), addKeyRequest, nil)
+	// Set usage for certificate authentication
+	usage := "Verify"
+	keyCredential.SetUsage(&usage)
+
+	// Set start and end dates from the certificate
+	startDateTime := cert.NotBefore
+	endDateTime := cert.NotAfter
+	keyCredential.SetStartDateTime(&startDateTime)
+	keyCredential.SetEndDateTime(&endDateTime)
+
+	log.Printf("Uploading certificate to Azure AD application: %s", applicationID)
+	log.Printf("Certificate subject: %s", cert.Subject.String())
+	log.Printf("Certificate valid from: %s to %s", cert.NotBefore.Format(time.RFC3339), cert.NotAfter.Format(time.RFC3339))
+
+	// Add a small delay to ensure application is fully created
+	time.Sleep(2 * time.Second)
+
+	// Try to update the application's keyCredentials directly instead of using AddKey
+	existingApp, err := c.Graph.Applications().ByApplicationId(applicationID).Get(context.Background(), nil)
 	if err != nil {
-		return fmt.Errorf("failed to add certificate to application: %v", err)
+		return fmt.Errorf("failed to retrieve application for certificate update (appId: %s): %v", applicationID, err)
 	}
 
-	log.Printf("Certificate authentication configured successfully")
+	// Get existing keyCredentials and append the new one
+	existingKeyCreds := existingApp.GetKeyCredentials()
+	if existingKeyCreds == nil {
+		existingKeyCreds = []models.KeyCredentialable{}
+	}
+	updatedKeyCreds := append(existingKeyCreds, keyCredential)
+
+	// Update the application with the new keyCredentials
+	updateApp := models.NewApplication()
+	updateApp.SetKeyCredentials(updatedKeyCreds)
+
+	_, err = c.Graph.Applications().ByApplicationId(applicationID).Patch(context.Background(), updateApp, nil)
+	if err != nil {
+		return fmt.Errorf("failed to upload certificate to Azure AD application (appId: %s): %v", applicationID, err)
+	}
+
+	log.Printf("Certificate successfully uploaded to Azure AD application")
+	log.Printf("Certificate files generated for service principal authentication:")
+	log.Printf("  Private Key: %s", privateKeyPath)
+	log.Printf("  Certificate: %s", certificatePath)
 
 	return nil
+}
+
+// generateSelfSignedCertificate generates a self-signed certificate and private key
+func (c *Clients) generateSelfSignedCertificate(applicationID string) (*x509.Certificate, *rsa.PrivateKey, error) {
+	// Generate RSA private key
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to generate private key: %v", err)
+	}
+
+	// Create certificate template
+	template := x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			CommonName:   fmt.Sprintf("azure-ssl-cert-provisioner-%s", applicationID),
+			Organization: []string{"Azure SSL Certificate Provisioner"},
+		},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(365 * 24 * time.Hour), // 1 year
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+		BasicConstraintsValid: true,
+	}
+
+	// Create the certificate
+	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &privateKey.PublicKey, privateKey)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create certificate: %v", err)
+	}
+
+	// Parse the certificate
+	cert, err := x509.ParseCertificate(certDER)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to parse certificate: %v", err)
+	}
+
+	return cert, privateKey, nil
+}
+
+// encodePrivateKeyToPEM encodes a private key to PEM format
+func (c *Clients) encodePrivateKeyToPEM(privateKey *rsa.PrivateKey) []byte {
+	privateKeyDER := x509.MarshalPKCS1PrivateKey(privateKey)
+	privateKeyPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: privateKeyDER,
+	})
+	return privateKeyPEM
+}
+
+// encodeCertificateToPEM encodes a certificate to PEM format
+func (c *Clients) encodeCertificateToPEM(cert *x509.Certificate) []byte {
+	certPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: cert.Raw,
+	})
+	return certPEM
 }
