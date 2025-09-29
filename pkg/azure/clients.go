@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -72,7 +71,7 @@ func NewClients(subscriptionID, vaultURL string) (*Clients, error) {
 }
 
 // CreateServicePrincipal creates a new Azure AD application and service principal
-func (c *Clients) CreateServicePrincipal(displayName, tenantID, subscriptionID string, assignDNSRole bool, resourceGroupName, keyVaultName, keyVaultResourceGroup string, noRoles bool, useCertAuth bool, privateKeyPath, certificatePath string) (*types.ServicePrincipalInfo, error) {
+func (c *Clients) CreateServicePrincipal(displayName, tenantID, subscriptionID string, assignDNSRole bool, resourceGroupName, keyVaultName, keyVaultResourceGroup string, noRoles bool, useCertAuth bool) (*types.ServicePrincipalInfo, error) {
 	// Validate provided tenant and subscription IDs
 	if tenantID == "" {
 		return nil, fmt.Errorf("tenant ID is required")
@@ -83,11 +82,9 @@ func (c *Clients) CreateServicePrincipal(displayName, tenantID, subscriptionID s
 
 	// Create the service principal info struct early and populate it as we go
 	spInfo := &types.ServicePrincipalInfo{
-		SubscriptionID:  subscriptionID,
-		TenantID:        tenantID,
-		UseCertAuth:     useCertAuth,
-		PrivateKeyPath:  privateKeyPath,
-		CertificatePath: certificatePath,
+		SubscriptionID: subscriptionID,
+		TenantID:       tenantID,
+		UseCertAuth:    useCertAuth,
 	}
 
 	// Create the Azure AD application
@@ -122,12 +119,18 @@ func (c *Clients) CreateServicePrincipal(displayName, tenantID, subscriptionID s
 	spInfo.ServicePrincipalID = *createdSP.GetId()
 
 	if useCertAuth {
+		// Derive certificate and private key paths from client ID
+		privateKeyPath := fmt.Sprintf("%s.key", spInfo.ClientID)
+		certificatePath := fmt.Sprintf("%s.crt", spInfo.ClientID)
+		spInfo.PrivateKeyPath = privateKeyPath
+		spInfo.CertificatePath = certificatePath
+
 		// Use certificate-based authentication
 		err := c.setupCertificateAuth(spInfo.ApplicationID, privateKeyPath, certificatePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to setup certificate authentication: %v", err)
 		}
-		log.Printf("Certificate authentication configured for application")
+		log.Printf("Certificate authentication configured for application: key=%s, cert=%s", privateKeyPath, certificatePath)
 	} else {
 		// Create client secret
 		passwordCredential := models.NewPasswordCredential()
@@ -331,36 +334,7 @@ func (c *Clients) setupCertificateAuth(applicationID, privateKeyPath, certificat
 		return fmt.Errorf("failed to add certificate to application: %v", err)
 	}
 
-	// Copy certificate to current working directory in PEM format
-	cwd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get current working directory: %v", err)
-	}
-
-	// Create certificate filename in current directory
-	certFileName := filepath.Join(cwd, fmt.Sprintf("%s-certificate.pem", applicationID))
-	err = os.WriteFile(certFileName, certData, 0600)
-	if err != nil {
-		return fmt.Errorf("failed to write certificate to current directory: %v", err)
-	}
-
-	log.Printf("Certificate saved to: %s", certFileName)
-
-	// If private key path is different from current directory, copy it as well
-	if !filepath.IsAbs(privateKeyPath) || filepath.Dir(privateKeyPath) != cwd {
-		privateKeyData, err := os.ReadFile(privateKeyPath)
-		if err != nil {
-			return fmt.Errorf("failed to read private key file: %v", err)
-		}
-
-		privateKeyFileName := filepath.Join(cwd, fmt.Sprintf("%s-private-key.pem", applicationID))
-		err = os.WriteFile(privateKeyFileName, privateKeyData, 0600)
-		if err != nil {
-			return fmt.Errorf("failed to write private key to current directory: %v", err)
-		}
-
-		log.Printf("Private key saved to: %s", privateKeyFileName)
-	}
+	log.Printf("Certificate authentication configured successfully")
 
 	return nil
 }

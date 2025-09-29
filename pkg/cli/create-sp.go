@@ -28,8 +28,7 @@ func (c *Commands) createServicePrincipalCommand() *cobra.Command {
 	createSPCmd.Flags().StringP("kv-name", "", "", "Key Vault name for Certificates Officer role assignment")
 	createSPCmd.Flags().StringP("kv-resource-group", "", "", "Resource group name for the Key Vault")
 	createSPCmd.Flags().Bool("no-roles", false, "Disable all role assignments even if other role flags are specified")
-	createSPCmd.Flags().StringP("private-key", "", "", "Path to private key file for certificate-based authentication")
-	createSPCmd.Flags().StringP("certificate", "", "", "Path to certificate file for certificate-based authentication")
+	createSPCmd.Flags().Bool("use-cert-auth", false, "Use certificate-based authentication (expects {client-id}.key and {client-id}.crt files)")
 	createSPCmd.Flags().StringP("shell", "", utilities.GetDefaultShell(), "Shell type for output template (bash, powershell)")
 
 	// Mark required flags
@@ -49,8 +48,7 @@ func (c *Commands) runCreateServicePrincipal() {
 	keyVaultName := viper.GetString("sp-kv-name")
 	keyVaultResourceGroup := viper.GetString("sp-kv-resource-group")
 	noRoles := viper.GetBool("sp-no-roles")
-	privateKeyPath := viper.GetString("sp-private-key")
-	certificatePath := viper.GetString("sp-certificate")
+	useCertAuth := viper.GetBool("sp-use-cert-auth")
 	shell := viper.GetString("sp-shell")
 
 	// Automatically assign DNS role if resource group is provided (unless --no-roles is specified)
@@ -68,13 +66,9 @@ func (c *Commands) runCreateServicePrincipal() {
 		log.Fatalf("Subscription ID is required. Use --subscription-id flag.")
 	}
 
-	// Validate certificate authentication parameters
-	useCertAuth := privateKeyPath != "" || certificatePath != ""
+	// Log certificate authentication mode
 	if useCertAuth {
-		if privateKeyPath == "" || certificatePath == "" {
-			log.Fatalf("Both --private-key and --certificate must be specified for certificate-based authentication.")
-		}
-		log.Printf("Certificate-based authentication enabled: private_key=%s, certificate=%s", privateKeyPath, certificatePath)
+		log.Printf("Certificate-based authentication enabled")
 	}
 
 	// Override role assignments if --no-roles is specified
@@ -102,7 +96,7 @@ func (c *Commands) runCreateServicePrincipal() {
 		log.Fatalf("Failed to create Azure clients: %v", err)
 	}
 
-	spInfo, err := azureClients.CreateServicePrincipal(displayName, tenantID, subscriptionID, assignRole, resourceGroup, keyVaultName, keyVaultResourceGroup, noRoles, useCertAuth, privateKeyPath, certificatePath)
+	spInfo, err := azureClients.CreateServicePrincipal(displayName, tenantID, subscriptionID, assignRole, resourceGroup, keyVaultName, keyVaultResourceGroup, noRoles, useCertAuth)
 	if err != nil {
 		log.Fatalf("Failed to create service principal: %v", err)
 	}
