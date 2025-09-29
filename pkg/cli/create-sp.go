@@ -10,10 +10,10 @@ import (
 	"azure-ssl-certificate-provisioner/pkg/azure"
 )
 
-// createServicePrincipalCommand creates the create-service-principal command
-func (c *Commands) createServicePrincipalCommand() *cobra.Command {
+// createSPCommand creates the create-sp command
+func (c *Commands) createSPCommand() *cobra.Command {
 	var createSPCmd = &cobra.Command{
-		Use:   "create-service-principal",
+		Use:   "create-sp",
 		Short: "Create Azure service principal for SSL certificate provisioning",
 		Long:  `Create an Azure AD application and service principal with optional role assignments for DNS and Key Vault access.`,
 		Run: func(cmd *cobra.Command, args []string) {

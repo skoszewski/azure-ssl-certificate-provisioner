@@ -347,7 +347,8 @@ Flags:
 ./azure-ssl-certificate-provisioner environment powershell
 ```
 
-#### `create-service-principal` Command
+#### `create-sp` Command
+
 
 Creates an Azure AD application and service principal for SSL certificate provisioning.
 
@@ -355,7 +356,7 @@ Note: You must specify both the tenant ID and subscription ID to ensure the serv
 is created in the correct Azure environment.
 
 ```bash
-./azure-ssl-certificate-provisioner create-service-principal [flags]
+./azure-ssl-certificate-provisioner create-sp [flags]
 
 Flags:
   -n, --name string                Display name for the Azure AD application (required)
@@ -366,25 +367,25 @@ Flags:
       --kv-name string             Key Vault name for Certificates Officer role assignment
       --kv-resource-group string   Resource group name for the Key Vault
       --shell string               Shell type for output template (bash, powershell) (default: "bash")
-  -h, --help                       Help for create-service-principal
+  -h, --help                       Help for create-sp
 ```
 
 **Usage Examples:**
 
 ```bash
 # Create service principal without role assignment
-./azure-ssl-certificate-provisioner create-service-principal \
+./azure-ssl-certificate-provisioner create-sp \
   --name "SSL Certificate Provisioner"
 
 # Create service principal and assign DNS Zone Contributor role
 # Create a service principal for Certificate Provisioner
-azure-ssl-certificate-provisioner create-service-principal \
+azure-ssl-certificate-provisioner create-sp \
   --name "certificate-provisioner-app" \
   --tenant-id "12345678-1234-1234-1234-123456789012" \
   --subscription-id "87654321-4321-4321-4321-210987654321"
 
 # Create a service principal and assign DNS Zone Contributor role
-azure-ssl-certificate-provisioner create-service-principal \
+azure-ssl-certificate-provisioner create-sp \
   --name "certificate-provisioner-app" \
   --tenant-id "12345678-1234-1234-1234-123456789012" \
   --subscription-id "87654321-4321-4321-4321-210987654321" \
@@ -392,14 +393,14 @@ azure-ssl-certificate-provisioner create-service-principal \
   --resource-group "dns-rg"
 
 # Generate PowerShell template
-azure-ssl-certificate-provisioner create-service-principal \
+azure-ssl-certificate-provisioner create-sp \
   --name "certificate-provisioner-app" \
   --tenant-id "12345678-1234-1234-1234-123456789012" \
   --subscription-id "87654321-4321-4321-4321-210987654321" \
   --shell "powershell"
 
 # Generate PowerShell output format
-./azure-ssl-certificate-provisioner create-service-principal \
+./azure-ssl-certificate-provisioner create-sp \
   --name "SSL Certificate Provisioner" \
   --shell powershell
 ```

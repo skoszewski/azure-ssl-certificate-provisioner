@@ -33,7 +33,7 @@ storing them in Azure Key Vault.`,
 	runCmd := c.createRunCommand()
 	listCmd := c.createListCommand()
 	envCmd := c.createEnvironmentCommand()
-	createSPCmd := c.createServicePrincipalCommand()
+	createSPCmd := c.createSPCommand()
 	deleteSPCmd := c.createDeleteServicePrincipalCommand()
 
 	// Configure flag bindings
@@ -70,7 +70,7 @@ func (c *Commands) setupFlagBindings(runCmd, listCmd, createSPCmd, deleteSPCmd *
 	viper.BindPFlag("list-expire-threshold", listCmd.Flags().Lookup("expire-threshold"))
 	viper.BindPFlag("list-email", listCmd.Flags().Lookup("email"))
 
-	// Bind flags for create-service-principal command (using sp- prefix to avoid conflicts)
+	// Bind flags for create-sp command (using sp- prefix to avoid conflicts)
 	viper.BindPFlag("sp-name", createSPCmd.Flags().Lookup("name"))
 	viper.BindPFlag("sp-tenant-id", createSPCmd.Flags().Lookup("tenant-id"))
 	viper.BindPFlag("sp-subscription-id", createSPCmd.Flags().Lookup("subscription-id"))
