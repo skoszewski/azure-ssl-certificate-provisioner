@@ -43,7 +43,7 @@ if (Get-Command podman -ErrorAction SilentlyContinue) {
 $imageName = "${env:REPOSITORY}/${env:IMAGE_NAME}:$tag"
 Write-Verbose "Running container image: $imageName"
 
-$ENVRIONMENT_VARIABLES = @(
+$ENVIRONMENT_VARIABLES = @(
     "AZURE_TENANT_ID",
     "AZURE_CLIENT_ID",
     "AZURE_CLIENT_SECRET",
@@ -52,9 +52,14 @@ $ENVRIONMENT_VARIABLES = @(
     "DNS_RESOLVERS"
 )
 
-$ENV_PARAMS = "$($ENVRIONMENT_VARIABLES | ForEach-Object { "-e $_" })"
+$ENV_PARAMS = $ENVIRONMENT_VARIABLES | ForEach-Object { 
+    $varName = $_
+    $varValue = [Environment]::GetEnvironmentVariable($varName)
+    "-e"
+    "$varName=$varValue"
+}
 
-& $containerTool run --rm -it -v ./root:/root:rw $ENV_PARAMS "$imageName" $args
+& $containerTool run --rm -it -v ./root:/root:rw @ENV_PARAMS "$imageName" $args
 if ($?) {
     Write-Host "Container image ran successfully."
 } else {
