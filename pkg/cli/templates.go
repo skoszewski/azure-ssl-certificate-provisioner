@@ -99,7 +99,13 @@ func (g *TemplateGenerator) generateServicePrincipalBashTemplate(spInfo *types.S
 		fmt.Println("export AZURE_KEY_VAULT_URL=\"https://your-keyvault.vault.azure.net/\"")
 	}
 	fmt.Printf("export AZURE_CLIENT_ID=\"%s\"\n", spInfo.ClientID)
-	fmt.Printf("export AZURE_CLIENT_SECRET=\"%s\"\n", spInfo.ClientSecret)
+
+	if spInfo.UseCertAuth {
+		fmt.Printf("export AZURE_CLIENT_CERTIFICATE_PATH=\"%s-certificate.pem\"\n", spInfo.ApplicationID)
+		fmt.Printf("export AZURE_CLIENT_CERTIFICATE_PASSWORD=\"\"\n")
+	} else {
+		fmt.Printf("export AZURE_CLIENT_SECRET=\"%s\"\n", spInfo.ClientSecret)
+	}
 }
 
 func (g *TemplateGenerator) generateServicePrincipalPowerShellTemplate(spInfo *types.ServicePrincipalInfo, keyVaultName, keyVaultResourceGroup string) {
@@ -117,7 +123,13 @@ func (g *TemplateGenerator) generateServicePrincipalPowerShellTemplate(spInfo *t
 		fmt.Println("$env:AZURE_KEY_VAULT_URL = \"https://your-keyvault.vault.azure.net/\"")
 	}
 	fmt.Printf("$env:AZURE_CLIENT_ID = \"%s\"\n", spInfo.ClientID)
-	fmt.Printf("$env:AZURE_CLIENT_SECRET = \"%s\"\n", spInfo.ClientSecret)
+
+	if spInfo.UseCertAuth {
+		fmt.Printf("$env:AZURE_CLIENT_CERTIFICATE_PATH = \"%s-certificate.pem\"\n", spInfo.ApplicationID)
+		fmt.Printf("$env:AZURE_CLIENT_CERTIFICATE_PASSWORD = \"\"\n")
+	} else {
+		fmt.Printf("$env:AZURE_CLIENT_SECRET = \"%s\"\n", spInfo.ClientSecret)
+	}
 }
 
 // MSI template methods

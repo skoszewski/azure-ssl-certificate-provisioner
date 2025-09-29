@@ -76,5 +76,7 @@ func (c *Commands) setupFlagBindings(runCmd, listCmd, createSPCmd *cobra.Command
 	viper.BindPFlag("sp-kv-name", createSPCmd.Flags().Lookup("kv-name"))
 	viper.BindPFlag("sp-kv-resource-group", createSPCmd.Flags().Lookup("kv-resource-group"))
 	viper.BindPFlag("sp-no-roles", createSPCmd.Flags().Lookup("no-roles"))
+	viper.BindPFlag("sp-private-key", createSPCmd.Flags().Lookup("private-key"))
+	viper.BindPFlag("sp-certificate", createSPCmd.Flags().Lookup("certificate"))
 	viper.BindPFlag("sp-shell", createSPCmd.Flags().Lookup("shell"))
 }

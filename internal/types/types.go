@@ -64,4 +64,7 @@ type ServicePrincipalInfo struct {
 	ServicePrincipalID string
 	SubscriptionID     string
 	TenantID           string
+	UseCertAuth        bool
+	PrivateKeyPath     string
+	CertificatePath    string
 }
