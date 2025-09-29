@@ -13,4 +13,7 @@ WORKDIR /root
 
 COPY scripts/entrypoint.sh /entrypoint.sh
 COPY scripts/request-or-renew.sh /
+# Required to make the entrypoint script executable if building on Windows host
+RUN chmod +x /entrypoint.sh
+RUN chmod +x /request-or-renew.sh
 ENTRYPOINT ["/entrypoint.sh"]
