@@ -8,6 +8,7 @@ prototypes
 **/*.env
 **/.env.*
 **/*_env.ps1
+**/env.ps1
 
 # Ignore binary files
 azure-ssl-certificate-provisioner
