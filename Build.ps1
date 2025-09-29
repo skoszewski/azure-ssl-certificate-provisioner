@@ -1,33 +1,64 @@
 [CmdletBinding()]
 param (
-    [switch]$Push = $false
+    [switch]$Push = $false,
+    [ValidateSet("amd64", "arm64")]
+    [string]$Architecture = "amd64"
 )
 
-# Check, if build_env.ps1 exists
-if (-not (Test-Path -Path "$PSScriptRoot\build_env.ps1")) {
-    Write-Error "build_env.ps1 file not found!"
+function Import-EnvFile {
+    [CmdletBinding()]
+    param (
+        [string]$EnvFilePath    
+    )
+    
+    Get-Content -Path $EnvFilePath | ForEach-Object {
+        if ($_ -match '^\s*#') {
+            # Skip comment lines
+            return
+        }
+
+        if ($_ -match '^\s*$') {
+            # Skip empty lines
+            return
+        }
+
+        $parts = $_ -split '=', 2
+    
+        if ($parts.Length -eq 2) {
+            $key = $parts[0].Trim()
+            $value = $parts[1].Trim()
+            [System.Environment]::SetEnvironmentVariable($key, $value)
+            Write-Verbose "Set environment variable: $key"
+        }
+        else {
+            Write-Warning "Ignoring invalid line in env file: $_"
+        }
+    }
+}
+
+# Check, if build.env exists
+if (-not (Test-Path -Path "$PSScriptRoot\build.env")) {
+    Write-Error "build.env file not found!"
     exit 1
 }
 
-Write-Verbose "Loading build environment from `"$PSScriptRoot\build_env.ps1`""
+Write-Verbose "Loading build environment from `"$PSScriptRoot\build.env`""
 
 # Include build time environment variables
-. "$PSScriptRoot\build_env.ps1"
+Import-EnvFile -EnvFilePath "$PSScriptRoot\build.env"
 
 if ( "$env:REPOSITORY" -eq "" || "$env:IMAGE_NAME" -eq "" ) {
-    Write-Error "REPOSITORY or IMAGE_NAME not set in build_env.ps1!"
+    Write-Error "REPOSITORY or IMAGE_NAME not set in build.env!"
     exit 1
 }
 
 # Determine architecture-specific tag
-if ( "$env:PROCESSOR_ARCHITECTURE" -eq "AMD64" ) {
-    $tag = "latest"
-    $arch = "amd64"
-} elseif ( "$env:PROCESSOR_ARCHITECTURE" -eq "ARM64" ) {
-    $tag = "arm64"
-    $arch = "arm64"
+if ( "$Architecture" -eq "amd64" ) {
+    $Tag = "latest"
+} elseif ( "$Architecture" -eq "arm64" ) {
+    $Tag = "arm64"
 } else {
-    Write-Error "Unsupported architecture: $env:PROCESSOR_ARCHITECTURE"
+    Write-Error "Unsupported architecture: $Architecture"
     exit 1
 }
 
@@ -41,15 +72,15 @@ if (Get-Command podman -ErrorAction SilentlyContinue) {
     exit 1
 }
 
-Write-Verbose "Building for Linux/$arch"
+Write-Verbose "Building for Linux/$Architecture"
 $env:GOOS = "linux"
-$env:GOARCH = $arch
+$env:GOARCH = $Architecture
 go build -o ./build/azure-ssl-certificate-provisioner-linux .
 
-$imageName = "${env:REPOSITORY}/${env:IMAGE_NAME}:$tag"
+$imageName = "${env:REPOSITORY}/${env:IMAGE_NAME}:$Tag"
 Write-Verbose "Building container image: $imageName"
 
-& $containerTool build --platform linux/$arch -t "$imageName" .
+& $containerTool build --platform linux/$Architecture -t "$imageName" .
 if ($?) {
     Write-Host "Container image built successfully."
 } else {
