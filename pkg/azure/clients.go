@@ -213,7 +213,7 @@ func (c *Clients) assignDNSZoneContributorRole(spInfo *types.ServicePrincipalInf
 
 	// Retry role assignment if PrincipalNotFound error occurs
 	maxRetries := 5
-	baseWaitTime := time.Second
+	waitTime := time.Second
 
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		_, err = authClient.Create(context.Background(), scope, roleAssignmentID, roleAssignmentProperties, nil)
@@ -230,10 +230,10 @@ func (c *Clients) assignDNSZoneContributorRole(spInfo *types.ServicePrincipalInf
 				return fmt.Errorf("failed to create role assignment after %d attempts, principal not found: %v", maxRetries, err)
 			}
 
-			waitTime := baseWaitTime * time.Duration(attempt)
 			log.Printf("Principal not found for DNS role assignment (attempt %d/%d), waiting %v before retry",
 				attempt, maxRetries, waitTime)
 			time.Sleep(waitTime)
+			waitTime *= 2 // Double the wait time for next attempt
 			continue
 		}
 
@@ -273,7 +273,7 @@ func (c *Clients) assignKeyVaultCertificatesOfficerRole(spInfo *types.ServicePri
 
 	// Retry role assignment if PrincipalNotFound error occurs
 	maxRetries := 5
-	baseWaitTime := time.Second
+	waitTime := time.Second
 
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		_, err = authClient.Create(context.Background(), scope, roleAssignmentID, roleAssignmentProperties, nil)
@@ -290,10 +290,10 @@ func (c *Clients) assignKeyVaultCertificatesOfficerRole(spInfo *types.ServicePri
 				return fmt.Errorf("failed to create role assignment after %d attempts, principal not found: %v", maxRetries, err)
 			}
 
-			waitTime := baseWaitTime * time.Duration(attempt)
 			log.Printf("Principal not found for Key Vault role assignment (attempt %d/%d), waiting %v before retry",
 				attempt, maxRetries, waitTime)
 			time.Sleep(waitTime)
+			waitTime *= 2 // Double the wait time for next attempt
 			continue
 		}
 
