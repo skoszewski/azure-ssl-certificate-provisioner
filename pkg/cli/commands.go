@@ -34,21 +34,23 @@ storing them in Azure Key Vault.`,
 	listCmd := c.createListCommand()
 	envCmd := c.createEnvironmentCommand()
 	createSPCmd := c.createServicePrincipalCommand()
+	deleteSPCmd := c.createDeleteServicePrincipalCommand()
 
 	// Configure flag bindings
-	c.setupFlagBindings(runCmd, listCmd, createSPCmd)
+	c.setupFlagBindings(runCmd, listCmd, createSPCmd, deleteSPCmd)
 
 	// Add subcommands to root command
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(envCmd)
 	rootCmd.AddCommand(createSPCmd)
+	rootCmd.AddCommand(deleteSPCmd)
 
 	return rootCmd
 }
 
 // setupFlagBindings configures flag bindings to viper
-func (c *Commands) setupFlagBindings(runCmd, listCmd, createSPCmd *cobra.Command) {
+func (c *Commands) setupFlagBindings(runCmd, listCmd, createSPCmd, deleteSPCmd *cobra.Command) {
 	// Setup viper configuration first (environment variable bindings)
 	config.SetupViper()
 
@@ -78,4 +80,9 @@ func (c *Commands) setupFlagBindings(runCmd, listCmd, createSPCmd *cobra.Command
 	viper.BindPFlag("sp-no-roles", createSPCmd.Flags().Lookup("no-roles"))
 	viper.BindPFlag("sp-use-cert-auth", createSPCmd.Flags().Lookup("use-cert-auth"))
 	viper.BindPFlag("sp-shell", createSPCmd.Flags().Lookup("shell"))
+
+	// Bind flags for delete-service-principal command
+	viper.BindPFlag("delete-sp-client-id", deleteSPCmd.Flags().Lookup("client-id"))
+	viper.BindPFlag("delete-sp-tenant-id", deleteSPCmd.Flags().Lookup("tenant-id"))
+	viper.BindPFlag("delete-sp-subscription-id", deleteSPCmd.Flags().Lookup("subscription-id"))
 }
