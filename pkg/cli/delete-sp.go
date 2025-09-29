@@ -28,10 +28,11 @@ This command will:
 	// Add flags
 	cmd.Flags().StringP("client-id", "c", "", "Client ID (App ID) of the Azure AD application to delete (required)")
 	cmd.Flags().String("tenant-id", "", "Azure AD tenant ID (optional, will use default if not specified)")
-	cmd.Flags().String("subscription-id", "", "Azure subscription ID (optional, will use default if not specified)")
+	cmd.Flags().StringP("subscription-id", "s", "", "Azure subscription ID (required for role assignment cleanup)")
 
 	// Mark required flags
 	cmd.MarkFlagRequired("client-id")
+	cmd.MarkFlagRequired("subscription-id")
 
 	return cmd
 }
@@ -44,6 +45,10 @@ func (c *Commands) runDeleteServicePrincipal(cmd *cobra.Command, args []string) 
 
 	if clientID == "" {
 		return fmt.Errorf("client-id is required")
+	}
+
+	if subscriptionID == "" {
+		return fmt.Errorf("subscription-id is required for role assignment cleanup")
 	}
 
 	log.Printf("Service principal deletion started: %s", clientID)

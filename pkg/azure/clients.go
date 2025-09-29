@@ -503,6 +503,12 @@ func (c *Clients) DeleteServicePrincipalByClientID(clientID, subscriptionID, ten
 
 // removeRoleAssignments removes all role assignments for a service principal
 func (c *Clients) removeRoleAssignments(servicePrincipalID, subscriptionID string) error {
+	if subscriptionID == "" {
+		return fmt.Errorf("subscription ID is required for role assignment operations")
+	}
+
+	log.Printf("Removing role assignments for service principal %s in subscription %s", servicePrincipalID, subscriptionID)
+
 	clientOptions := &arm.ClientOptions{
 		ClientOptions: policy.ClientOptions{
 			APIVersion: "2022-04-01",
@@ -513,13 +519,16 @@ func (c *Clients) removeRoleAssignments(servicePrincipalID, subscriptionID strin
 		return fmt.Errorf("failed to create authorization client: %v", err)
 	}
 
-	// List all role assignments for the subscription
+	// List all role assignments for the subscription with filter by principal ID
 	filter := fmt.Sprintf("principalId eq '%s'", servicePrincipalID)
 	pager := authClient.NewListPager(&armauthorization.RoleAssignmentsClientListOptions{
 		Filter: &filter,
 	})
 
-	var roleAssignmentsToDelete []string
+	var roleAssignmentsToDelete []struct {
+		Name  string
+		Scope string
+	}
 
 	for pager.More() {
 		page, err := pager.NextPage(context.Background())
@@ -531,22 +540,27 @@ func (c *Clients) removeRoleAssignments(servicePrincipalID, subscriptionID strin
 			if assignment.Properties != nil &&
 				assignment.Properties.PrincipalID != nil &&
 				*assignment.Properties.PrincipalID == servicePrincipalID {
-				if assignment.Name != nil {
-					roleAssignmentsToDelete = append(roleAssignmentsToDelete, *assignment.Name)
-					log.Printf("Found role assignment to remove: %s", *assignment.Name)
+				if assignment.Name != nil && assignment.Properties.Scope != nil {
+					roleAssignmentsToDelete = append(roleAssignmentsToDelete, struct {
+						Name  string
+						Scope string
+					}{
+						Name:  *assignment.Name,
+						Scope: *assignment.Properties.Scope,
+					})
+					log.Printf("Found role assignment to remove: %s at scope: %s", *assignment.Name, *assignment.Properties.Scope)
 				}
 			}
 		}
 	}
 
-	// Delete each role assignment
-	for _, assignmentName := range roleAssignmentsToDelete {
-		scope := fmt.Sprintf("/subscriptions/%s", subscriptionID)
-		_, err := authClient.Delete(context.Background(), scope, assignmentName, nil)
+	// Delete each role assignment using the correct scope
+	for _, assignment := range roleAssignmentsToDelete {
+		_, err := authClient.Delete(context.Background(), assignment.Scope, assignment.Name, nil)
 		if err != nil {
-			log.Printf("Warning: Failed to delete role assignment %s: %v", assignmentName, err)
+			log.Printf("Warning: Failed to delete role assignment %s at scope %s: %v", assignment.Name, assignment.Scope, err)
 		} else {
-			log.Printf("Role assignment removed: %s", assignmentName)
+			log.Printf("Role assignment removed: %s at scope: %s", assignment.Name, assignment.Scope)
 		}
 	}
 
