@@ -21,15 +21,49 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	// configure root command
-	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose output")
+	rootSetup(rootCmd)
 
 	// configure config command
-	configSetup()
+	configSetup(configCmd)
 	rootCmd.AddCommand(configCmd)
 
 	// configure environment command
-	envSetup()
+	envSetup(envCmd)
 	rootCmd.AddCommand(envCmd)
+
+	// configure list command
+	listCmdSetup(listCmd)
+	rootCmd.AddCommand(listCmd)
+
+	// configure run command
+	runCmdSetup(runCmd)
+	rootCmd.AddCommand(runCmd)
+
+	// configure create a Service Principal command
+	createSPCmdSetup(createSPCmd)
+	rootCmd.AddCommand(createSPCmd)
+
+	// configure delete the Service Principal command
+	deleteSPCmdSetup(deleteSPCmd)
+	rootCmd.AddCommand(deleteSPCmd)
+
+	// Bind Viper keys to environment variables
+	viper.BindEnv("subscription", "AZURE_SUBSCRIPTION_ID")
+	viper.BindEnv("resource-group", "AZURE_RESOURCE_GROUP")
+	viper.BindEnv("key-vault-url", "AZURE_KEY_VAULT_URL")
+	viper.BindEnv("email", "LEGO_EMAIL")
+
+	// Azure authentication environment variables for lego DNS provider
+	viper.BindEnv("azure-client-id", "AZURE_CLIENT_ID")
+	viper.BindEnv("azure-client-secret", "AZURE_CLIENT_SECRET")
+	viper.BindEnv("azure-tenant-id", "AZURE_TENANT_ID")
+	viper.BindEnv("azure-auth-method", "AZURE_AUTH_METHOD")
+	viper.BindEnv("azure-auth-msi-timeout", "AZURE_AUTH_MSI_TIMEOUT")
+
+	// Set defaults
+	viper.SetDefault("staging", true)
+	viper.SetDefault("azure-auth-method", "")
+	viper.SetDefault("azure-auth-msi-timeout", "2s")
 }
 
 func initConfig() {
@@ -42,39 +76,4 @@ func initConfig() {
 	} else {
 		utilities.LogVerbose("No config file found, relying on environment variables and flags")
 	}
-}
-
-// setupFlagBindings configures flag bindings to viper
-func setupFlagBindings(runCmd, listCmd, createSPCmd, deleteSPCmd *cobra.Command) {
-	// Bind flags to viper for run command
-	viper.BindPFlag("zones", runCmd.Flags().Lookup("zones"))
-	viper.BindPFlag("subscription", runCmd.Flags().Lookup("subscription"))
-	viper.BindPFlag("resource-group", runCmd.Flags().Lookup("resource-group"))
-	viper.BindPFlag("staging", runCmd.Flags().Lookup("staging"))
-	viper.BindPFlag("expire-threshold", runCmd.Flags().Lookup("expire-threshold"))
-	viper.BindPFlag("email", runCmd.Flags().Lookup("email"))
-
-	// Bind flags to viper for list command (reuse same bindings as run command)
-	viper.BindPFlag("zones", listCmd.Flags().Lookup("zones"))
-	viper.BindPFlag("subscription", listCmd.Flags().Lookup("subscription"))
-	viper.BindPFlag("resource-group", listCmd.Flags().Lookup("resource-group"))
-	viper.BindPFlag("staging", listCmd.Flags().Lookup("staging"))
-	viper.BindPFlag("expire-threshold", listCmd.Flags().Lookup("expire-threshold"))
-	viper.BindPFlag("email", listCmd.Flags().Lookup("email"))
-
-	// Bind flags for create-sp command
-	viper.BindPFlag("sp-name", createSPCmd.Flags().Lookup("name"))
-	viper.BindPFlag("azure-tenant-id", createSPCmd.Flags().Lookup("tenant-id"))
-	viper.BindPFlag("subscription", createSPCmd.Flags().Lookup("subscription-id"))
-	viper.BindPFlag("resource-group", createSPCmd.Flags().Lookup("resource-group"))
-	viper.BindPFlag("kv-name", createSPCmd.Flags().Lookup("kv-name"))
-	viper.BindPFlag("kv-resource-group", createSPCmd.Flags().Lookup("kv-resource-group"))
-	viper.BindPFlag("sp-no-roles", createSPCmd.Flags().Lookup("no-roles"))
-	viper.BindPFlag("sp-use-cert-auth", createSPCmd.Flags().Lookup("use-cert-auth"))
-	viper.BindPFlag("shell", createSPCmd.Flags().Lookup("shell"))
-
-	// Bind flags for delete-service-principal command
-	viper.BindPFlag("delete-sp-client-id", deleteSPCmd.Flags().Lookup("client-id"))
-	viper.BindPFlag("azure-tenant-id", deleteSPCmd.Flags().Lookup("tenant-id"))
-	viper.BindPFlag("subscription", deleteSPCmd.Flags().Lookup("subscription-id"))
 }

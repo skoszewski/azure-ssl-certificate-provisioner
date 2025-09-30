@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/keyvault/azcertificates"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
 	"azure-ssl-certificate-provisioner/internal/utilities"
@@ -14,8 +15,32 @@ import (
 	"azure-ssl-certificate-provisioner/pkg/azure"
 )
 
-// listCertificatesAndRecords lists DNS records and their certificate status
-func listCertificatesAndRecords() {
+var listCmd = &cobra.Command{
+	Use:    "list",
+	Short:  "List DNS records and certificate status",
+	Long:   `Scan Azure DNS zones and list records that would be processed, along with their certificate status from Key Vault.`,
+	Run:    listCmdRun,
+	PreRun: listCmdPreRun,
+}
+
+func listCmdSetup(cmd *cobra.Command) {
+	cmd.Flags().StringSliceP("zones", "z", nil, "DNS zone(s) to search for records (can be used multiple times). If omitted, all zones in the resource group will be scanned")
+	cmd.Flags().StringP("subscription", "s", "", "Azure subscription ID")
+	cmd.Flags().StringP("resource-group", "g", "", "Azure resource group name")
+	cmd.Flags().StringP("key-vault-url", "k", "", "Key Vault URL where certificates are stored")
+
+	viper.BindPFlag("zones", cmd.Flags().Lookup("zones"))
+	viper.BindPFlag("subscription", cmd.Flags().Lookup("subscription"))
+	viper.BindPFlag("resource-group", cmd.Flags().Lookup("resource-group"))
+	viper.BindPFlag("key-vault-url", cmd.Flags().Lookup("key-vault-url"))
+}
+
+func listCmdPreRun(cmd *cobra.Command, args []string) {
+
+}
+
+// listCmdRun lists DNS records and their certificate status
+func listCmdRun(cmd *cobra.Command, args []string) {
 	ctx := context.Background()
 
 	// Get configuration values (using same keys as run command)

@@ -47,10 +47,10 @@ func envRun(cmd *cobra.Command, args []string) {
 	GenerateEnvironmentTemplate(chosenShell, msiType)
 }
 
-func envSetup() {
-	envCmd.PersistentFlags().String("use-msi", "", "Generate templated for MI authentication (system|user)")
-	envCmd.Flags().String("shell", "", "Chosen shell type")
-	envCmd.RegisterFlagCompletionFunc("shell", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+func envSetup(cmd *cobra.Command) {
+	cmd.Flags().StringP("use-msi", "m", "", "Generate templated for MI authentication (system|user)")
+	cmd.Flags().StringP("shell", "s", "", "Chosen shell type")
+	cmd.RegisterFlagCompletionFunc("shell", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return envShellTypes, cobra.ShellCompDirectiveNoFileComp
 	})
 }

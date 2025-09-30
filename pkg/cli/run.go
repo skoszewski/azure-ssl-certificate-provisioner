@@ -18,57 +18,32 @@ import (
 	"azure-ssl-certificate-provisioner/pkg/config"
 )
 
-// createRunCommand creates the run command
-func createRunCommand() *cobra.Command {
-	var runCmd = &cobra.Command{
-		Use:   "run",
-		Short: "Run the SSL certificate provisioner",
-		Long:  `Scan Azure DNS zones and provision SSL certificates for records marked with ACME metadata.`,
-		Run: func(cmd *cobra.Command, args []string) {
-			runCertificateProvisioner()
-		},
-	}
+var runCmd = &cobra.Command{
+	Use:   "run",
+	Short: "Run the SSL certificate provisioner",
+	Long:  `Scan Azure DNS zones and provision SSL certificates for records marked with ACME metadata.`,
+	Run:   runCmdRun,
+}
 
+func runCmdSetup(cmd *cobra.Command) {
 	// Configure flags for run command
-	runCmd.Flags().StringSliceP("zones", "z", nil, "DNS zone(s) to search for records (can be used multiple times). If omitted, all zones in the resource group will be scanned")
-	runCmd.Flags().StringP("subscription", "s", "", "Azure subscription ID")
-	runCmd.Flags().StringP("resource-group", "g", "", "Azure resource group name")
-	runCmd.Flags().Bool("staging", true, "Use Let's Encrypt staging environment")
-	runCmd.Flags().IntP("expire-threshold", "t", 7, "Certificate expiration threshold in days")
-	runCmd.Flags().StringP("email", "e", "", "Email address for ACME account registration (required)")
+	cmd.Flags().StringSliceP("zones", "z", nil, "DNS zone(s) to search for records (can be used multiple times). If omitted, all zones in the resource group will be scanned")
+	cmd.Flags().StringP("subscription", "s", "", "Azure subscription ID")
+	cmd.Flags().StringP("resource-group", "g", "", "Azure resource group name")
+	cmd.Flags().Bool("staging", true, "Use Let's Encrypt staging environment")
+	cmd.Flags().IntP("expire-threshold", "t", 7, "Certificate expiration threshold in days")
+	cmd.Flags().StringP("email", "e", "", "Email address for ACME account registration (required)")
 
-	// Mark required flags
-	// Note: All these parameters can be provided via environment variables, so we don't use MarkFlagRequired
-	// which would prevent environment variable resolution. Manual validation is done in runCertificateProvisioner()
-	// Environment variables: AZURE_SUBSCRIPTION_ID, AZURE_RESOURCE_GROUP, LEGO_EMAIL
-
-	return runCmd
+	viper.BindPFlag("zones", runCmd.Flags().Lookup("zones"))
+	viper.BindPFlag("subscription", runCmd.Flags().Lookup("subscription"))
+	viper.BindPFlag("resource-group", runCmd.Flags().Lookup("resource-group"))
+	viper.BindPFlag("staging", runCmd.Flags().Lookup("staging"))
+	viper.BindPFlag("expire-threshold", runCmd.Flags().Lookup("expire-threshold"))
+	viper.BindPFlag("email", runCmd.Flags().Lookup("email"))
 }
 
-// createListCommand creates the list command
-func createListCommand() *cobra.Command {
-	var listCmd = &cobra.Command{
-		Use:   "list",
-		Short: "List DNS records and certificate status",
-		Long:  `Scan Azure DNS zones and list records that would be processed, along with their certificate status from Key Vault.`,
-		Run: func(cmd *cobra.Command, args []string) {
-			listCertificatesAndRecords()
-		},
-	}
-
-	// Configure flags for list command (same as run command)
-	listCmd.Flags().StringSliceP("zones", "z", nil, "DNS zone(s) to search for records (can be used multiple times). If omitted, all zones in the resource group will be scanned")
-	listCmd.Flags().StringP("subscription", "s", "", "Azure subscription ID")
-	listCmd.Flags().StringP("resource-group", "g", "", "Azure resource group name")
-	listCmd.Flags().Bool("staging", true, "Use Let's Encrypt staging environment")
-	listCmd.Flags().IntP("expire-threshold", "t", 7, "Certificate expiration threshold in days")
-	listCmd.Flags().StringP("email", "e", "", "Email address for ACME account registration (used for certificate lookup)")
-
-	return listCmd
-}
-
-// runCertificateProvisioner executes the main certificate provisioning logic
-func runCertificateProvisioner() {
+// runCmdRun executes the main certificate provisioning logic
+func runCmdRun(cmd *cobra.Command, args []string) {
 	ctx := context.Background()
 
 	// Get configuration values

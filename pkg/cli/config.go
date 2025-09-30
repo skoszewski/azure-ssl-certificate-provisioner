@@ -22,6 +22,6 @@ func configRun(cmd *cobra.Command, args []string) {
 	GenerateConfigTemplate(format)
 }
 
-func configSetup() {
-	configCmd.Flags().StringP("format", "f", "yaml", "config file format")
+func configSetup(cmd *cobra.Command) {
+	cmd.Flags().StringP("format", "f", "yaml", "config file format")
 }
