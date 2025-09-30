@@ -3,6 +3,9 @@ package cli
 import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"azure-ssl-certificate-provisioner/internal/utilities"
+	"azure-ssl-certificate-provisioner/pkg/config"
 )
 
 // Commands holds all CLI commands
@@ -25,7 +28,17 @@ func (c *Commands) CreateRootCommand() *cobra.Command {
 		Long: `Azure SSL Certificate Provisioner scans Azure DNS zones for records marked with 
 ACME metadata and automatically provisions SSL certificates using Let's Encrypt, 
 storing them in Azure Key Vault.`,
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			// Set global verbosity level from the flag first
+			verbose, _ := cmd.Flags().GetBool("verbose")
+			utilities.SetVerbose(verbose)
+			// Setup viper configuration globally for all commands
+			config.SetupViper()
+		},
 	}
+
+	// Add global verbose flag
+	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose output")
 
 	// Create subcommands
 	runCmd := c.createRunCommand()
@@ -51,8 +64,6 @@ storing them in Azure Key Vault.`,
 
 // setupFlagBindings configures flag bindings to viper
 func (c *Commands) setupFlagBindings(runCmd, listCmd, createSPCmd, deleteSPCmd *cobra.Command) {
-	// Note: Viper setup is now done lazily in each command that needs it
-
 	// Bind flags to viper for run command
 	viper.BindPFlag("zones", runCmd.Flags().Lookup("zones"))
 	viper.BindPFlag("subscription", runCmd.Flags().Lookup("subscription"))

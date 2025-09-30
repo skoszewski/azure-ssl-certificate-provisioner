@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"azure-ssl-certificate-provisioner/internal/utilities"
 	"azure-ssl-certificate-provisioner/internal/zones"
 	"azure-ssl-certificate-provisioner/pkg/acme"
 	"azure-ssl-certificate-provisioner/pkg/azure"
@@ -70,9 +71,6 @@ func (c *Commands) createListCommand() *cobra.Command {
 func (c *Commands) runCertificateProvisioner() {
 	ctx := context.Background()
 
-	// Setup configuration loading
-	config.SetupViper()
-
 	// Get configuration values
 	zonesList := viper.GetStringSlice("zones")
 	subscriptionId := viper.GetString("subscription")
@@ -111,10 +109,10 @@ func (c *Commands) runCertificateProvisioner() {
 	var serverURL string
 	if staging {
 		serverURL = "https://acme-staging-v02.api.letsencrypt.org/directory"
-		log.Printf("ACME environment: staging")
+		utilities.LogDefault("ACME environment: staging")
 	} else {
 		serverURL = "https://acme-v02.api.letsencrypt.org/directory"
-		log.Printf("ACME environment: production")
+		utilities.LogDefault("ACME environment: production")
 	}
 
 	// Load or create ACME account with persistence
@@ -159,12 +157,12 @@ func (c *Commands) runCertificateProvisioner() {
 
 		// Save the account data for future runs
 		if err := acme.SaveAccountData(user, serverURL); err != nil {
-			log.Printf("ACME account save failed: %v", err)
+			utilities.LogDefault("ACME account save failed: %v", err)
 		} else {
-			log.Printf("ACME account saved successfully")
+			utilities.LogDefault("ACME account saved successfully")
 		}
 	} else {
-		log.Printf("ACME account loaded: %s", user.Email)
+		utilities.LogDefault("ACME account loaded: %s", user.Email)
 	}
 
 	// Create certificate handler
@@ -191,7 +189,7 @@ func setAzureDNSEnvironment(subscriptionID, resourceGroup string) error {
 	authMethod := viper.GetString("azure-auth-method")
 	if authMethod != "" {
 		os.Setenv("AZURE_AUTH_METHOD", authMethod)
-		log.Printf("Azure DNS authentication method: %s", authMethod)
+		utilities.LogDefault("Azure DNS authentication method: %s", authMethod)
 	}
 
 	// Set MSI timeout if specified

@@ -2,10 +2,11 @@ package config
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/spf13/viper"
+
+	"azure-ssl-certificate-provisioner/internal/utilities"
 )
 
 // ValidateRequiredEnvVars validates that all required environment variables are set
@@ -20,12 +21,12 @@ func ValidateRequiredEnvVars() error {
 	authMethod := viper.GetString("azure-auth-method")
 
 	if authMethod == "msi" {
-		log.Printf("MSI authentication configured")
+		utilities.LogDefault("MSI authentication configured")
 		clientID := viper.GetString("azure-client-id")
 		if clientID != "" {
-			log.Printf("User-assigned MSI client ID: %s", clientID)
+			utilities.LogDefault("User-assigned MSI client ID: %s", clientID)
 		} else {
-			log.Printf("System-assigned MSI will be used")
+			utilities.LogDefault("System-assigned MSI will be used")
 		}
 		return nil
 	}
@@ -40,12 +41,12 @@ func ValidateRequiredEnvVars() error {
 	if authMethod == "" {
 		// Auto-detect based on available credentials
 		if clientID != "" && clientSecret != "" && tenantID != "" {
-			log.Printf("Service Principal authentication configured: client_id=%s, tenant_id=%s", clientID, tenantID)
+			utilities.LogDefault("Service Principal authentication configured: client_id=%s, tenant_id=%s", clientID, tenantID)
 			return nil
 		}
 
 		// Fall back to default credential chain if no explicit credentials
-		log.Printf("Using Azure Default Credential chain authentication")
+		utilities.LogDefault("Using Azure Default Credential chain authentication")
 		return nil
 	}
 
@@ -65,7 +66,7 @@ func ValidateRequiredEnvVars() error {
 		return fmt.Errorf("required Azure authentication environment variables are missing: %s (or set AZURE_AUTH_METHOD=msi for MSI authentication)", strings.Join(missingVars, ", "))
 	}
 
-	log.Printf("Service Principal authentication configured: client_id=%s, tenant_id=%s", clientID, tenantID)
+	utilities.LogDefault("Service Principal authentication configured: client_id=%s, tenant_id=%s", clientID, tenantID)
 	return nil
 }
 
@@ -82,13 +83,13 @@ func SetupViper() {
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
 			// Config file not found - this is okay, we'll use env vars and flags
-			log.Printf("No configuration file found, using environment variables and command-line flags")
+			utilities.LogDefault("No configuration file found, using environment variables and command-line flags")
 		} else {
 			// Config file was found but another error was produced
-			log.Printf("Error reading configuration file: %v", err)
+			utilities.LogDefault("Error reading configuration file: %v", err)
 		}
 	} else {
-		log.Printf("Using configuration file: %s", viper.ConfigFileUsed())
+		utilities.LogVerbose("Using configuration file: %s", viper.ConfigFileUsed())
 	}
 
 	// Set environment variable bindings

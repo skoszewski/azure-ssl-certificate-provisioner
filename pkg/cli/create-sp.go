@@ -8,7 +8,6 @@ import (
 
 	"azure-ssl-certificate-provisioner/internal/utilities"
 	"azure-ssl-certificate-provisioner/pkg/azure"
-	"azure-ssl-certificate-provisioner/pkg/config"
 )
 
 // createSPCommand creates the create-sp command
@@ -42,9 +41,6 @@ func (c *Commands) createSPCommand() *cobra.Command {
 
 // runCreateServicePrincipal executes the service principal creation logic
 func (c *Commands) runCreateServicePrincipal() {
-	// Setup configuration loading
-	config.SetupViper()
-
 	displayName := viper.GetString("sp-name")
 	tenantID := viper.GetString("azure-tenant-id")
 	subscriptionID := viper.GetString("subscription")
@@ -72,7 +68,7 @@ func (c *Commands) runCreateServicePrincipal() {
 
 	// Log certificate authentication mode
 	if useCertAuth {
-		log.Printf("Certificate-based authentication enabled")
+		utilities.LogDefault("Certificate-based authentication enabled")
 	}
 
 	// Override role assignments if --no-roles is specified
@@ -80,7 +76,7 @@ func (c *Commands) runCreateServicePrincipal() {
 		assignRole = false
 		keyVaultName = ""
 		keyVaultResourceGroup = ""
-		log.Printf("Role assignments disabled by --no-roles flag")
+		utilities.LogDefault("Role assignments disabled by --no-roles flag")
 	} else {
 		// If kv-resource-group is not specified but kv-name is, use resource-group as fallback
 		if keyVaultName != "" && keyVaultResourceGroup == "" {
@@ -88,11 +84,11 @@ func (c *Commands) runCreateServicePrincipal() {
 			if keyVaultResourceGroup == "" {
 				log.Fatalf("Resource group is required when assigning Key Vault role. Use --resource-group or --kv-resource-group flag.")
 			}
-			log.Printf("Key Vault role assignment: resource_group=%s, key_vault=%s", keyVaultResourceGroup, keyVaultName)
+			utilities.LogDefault("Key Vault role assignment: resource_group=%s, key_vault=%s", keyVaultResourceGroup, keyVaultName)
 		}
 	}
 
-	log.Printf("Service principal creation started: %s", displayName)
+	utilities.LogDefault("Service principal creation started: %s", displayName)
 
 	// Create Azure clients
 	azureClients, err := azure.NewClients(subscriptionID, "https://dummy.vault.azure.net/") // Dummy URL since we don't need KV client here
@@ -105,7 +101,7 @@ func (c *Commands) runCreateServicePrincipal() {
 		log.Fatalf("Failed to create service principal: %v", err)
 	}
 
-	log.Printf("Service principal created: application_id=%s, client_id=%s, service_principal_id=%s", spInfo.ApplicationID, spInfo.ClientID, spInfo.ServicePrincipalID)
+	utilities.LogDefault("Service principal created: application_id=%s, client_id=%s, service_principal_id=%s", spInfo.ApplicationID, spInfo.ClientID, spInfo.ServicePrincipalID)
 
 	c.templateGen.GenerateServicePrincipalTemplate(spInfo, shell, keyVaultName, keyVaultResourceGroup)
 }

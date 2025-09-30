@@ -2,10 +2,10 @@ package cli
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
 	"azure-ssl-certificate-provisioner/internal/types"
+	"azure-ssl-certificate-provisioner/internal/utilities"
 )
 
 // TemplateGenerator handles generating environment variable templates
@@ -34,7 +34,7 @@ func (g *TemplateGenerator) GenerateEnvironmentTemplate(shell string, msiType st
 			g.generateBashTemplate()
 		}
 	default:
-		log.Printf("Unsupported shell type: shell=%s, supported=bash,powershell", shell)
+		utilities.LogDefault("Unsupported shell type: shell=%s, supported=bash,powershell", shell)
 		if msiType == "system" || msiType == "user" {
 			g.generateMSIBashTemplate(isUserMSI)
 		} else {
@@ -79,7 +79,7 @@ func (g *TemplateGenerator) GenerateServicePrincipalTemplate(spInfo *types.Servi
 	case "bash", "sh":
 		g.generateServicePrincipalBashTemplate(spInfo, keyVaultName, keyVaultResourceGroup)
 	default:
-		log.Printf("Unsupported shell type: shell=%s, using=bash", shell)
+		utilities.LogDefault("Unsupported shell type: shell=%s, using=bash", shell)
 		g.generateServicePrincipalBashTemplate(spInfo, keyVaultName, keyVaultResourceGroup)
 	}
 }

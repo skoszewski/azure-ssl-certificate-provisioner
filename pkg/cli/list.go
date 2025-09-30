@@ -9,17 +9,14 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/keyvault/azcertificates"
 	"github.com/spf13/viper"
 
+	"azure-ssl-certificate-provisioner/internal/utilities"
 	"azure-ssl-certificate-provisioner/internal/zones"
 	"azure-ssl-certificate-provisioner/pkg/azure"
-	"azure-ssl-certificate-provisioner/pkg/config"
 )
 
 // listCertificatesAndRecords lists DNS records and their certificate status
 func (c *Commands) listCertificatesAndRecords() {
 	ctx := context.Background()
-
-	// Setup configuration loading
-	config.SetupViper()
 
 	// Get configuration values (using same keys as run command)
 	zonesList := viper.GetStringSlice("zones")
@@ -53,7 +50,7 @@ func (c *Commands) listCertificatesAndRecords() {
 		log.Fatalf("Failed to create Azure clients: %v", err)
 	}
 
-	log.Printf("List mode started: subscription=%s, resource_group=%s, key_vault=%s, expire_threshold=%d", subscriptionId, resourceGroupName, vaultURL, expireThreshold)
+	utilities.LogDefault("List mode started: subscription=%s, resource_group=%s, key_vault=%s, expire_threshold=%d", subscriptionId, resourceGroupName, vaultURL, expireThreshold)
 
 	// Create zones enumerator and process zones with listing processor
 	enumerator := zones.NewEnumerator(azureClients)
@@ -86,13 +83,13 @@ func (p *CertificateListProcessor) ProcessFQDN(ctx context.Context, fqdn string,
 	p.totalRecords++
 
 	certName := "cert-" + strings.ReplaceAll(fqdn, ".", "-")
-	log.Printf("DNS record found and marked for ACME processing")
-	log.Printf("Checking certificate: %s", certName)
+	utilities.LogDefault("DNS record found and marked for ACME processing")
+	utilities.LogDefault("Checking certificate: %s", certName)
 
 	// Check certificate status in Key Vault
 	resp, err := p.kvClient.GetCertificate(ctx, certName, "", nil)
 	if err != nil {
-		log.Printf("Certificate not found in Key Vault")
+		utilities.LogDefault("Certificate not found in Key Vault")
 		p.missingCerts++
 		return
 	}
@@ -103,14 +100,14 @@ func (p *CertificateListProcessor) ProcessFQDN(ctx context.Context, fqdn string,
 		daysLeft = int(time.Until(*resp.Attributes.Expires).Hours() / 24)
 
 		if daysLeft <= expireThreshold {
-			log.Printf("Certificate expires in %d days (threshold: %d)", daysLeft, expireThreshold)
+			utilities.LogDefault("Certificate expires in %d days (threshold: %d)", daysLeft, expireThreshold)
 			p.expiredCerts++
 		} else {
-			log.Printf("Certificate valid for %d days", daysLeft)
+			utilities.LogDefault("Certificate valid for %d days", daysLeft)
 			p.validCerts++
 		}
 	} else {
-		log.Printf("Certificate found but expiration date unavailable")
+		utilities.LogDefault("Certificate found but expiration date unavailable")
 		p.missingCerts++
 	}
 }
@@ -123,6 +120,6 @@ func (p *CertificateListProcessor) PrintSummary() {
 	} else {
 		needsAction = ", action_needed=false"
 	}
-	log.Printf("Summary: total_records=%d, valid_certs=%d, expired_certs=%d, missing_certs=%d%s",
+	utilities.LogDefault("Summary: total_records=%d, valid_certs=%d, expired_certs=%d, missing_certs=%d%s",
 		p.totalRecords, p.validCerts, p.expiredCerts, p.missingCerts, needsAction)
 }

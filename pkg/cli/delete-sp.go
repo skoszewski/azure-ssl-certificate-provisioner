@@ -2,13 +2,12 @@ package cli
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"azure-ssl-certificate-provisioner/internal/utilities"
 	"azure-ssl-certificate-provisioner/pkg/azure"
-	"azure-ssl-certificate-provisioner/pkg/config"
 )
 
 // createDeleteServicePrincipalCommand creates the delete-sp command
@@ -40,9 +39,6 @@ This command will:
 
 // runDeleteServicePrincipal executes the delete-sp command
 func (c *Commands) runDeleteServicePrincipal(cmd *cobra.Command, args []string) error {
-	// Setup configuration loading
-	config.SetupViper()
-
 	clientID := viper.GetString("delete-sp-client-id")
 	tenantID := viper.GetString("azure-tenant-id")
 	subscriptionID := viper.GetString("subscription")
@@ -55,7 +51,7 @@ func (c *Commands) runDeleteServicePrincipal(cmd *cobra.Command, args []string) 
 		return fmt.Errorf("subscription-id is required for role assignment cleanup")
 	}
 
-	log.Printf("Service principal deletion started: %s", clientID)
+	utilities.LogDefault("Service principal deletion started: %s", clientID)
 
 	// Create Azure clients
 	clients, err := azure.NewClients(subscriptionID, "")
@@ -69,6 +65,6 @@ func (c *Commands) runDeleteServicePrincipal(cmd *cobra.Command, args []string) 
 		return fmt.Errorf("failed to delete service principal: %v", err)
 	}
 
-	log.Printf("Service principal and application deleted successfully: %s", clientID)
+	utilities.LogDefault("Service principal and application deleted successfully: %s", clientID)
 	return nil
 }
