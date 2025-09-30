@@ -47,8 +47,7 @@ func listCmdRun(cmd *cobra.Command, args []string) {
 	zonesList := viper.GetStringSlice("zones")
 	subscriptionId := viper.GetString("subscription")
 	resourceGroupName := viper.GetString("resource-group")
-	expireThreshold := viper.GetInt("expire-threshold")
-	email := viper.GetString("email")
+	vaultURL := viper.GetString("key-vault-url")
 
 	// Validate required parameters
 	if subscriptionId == "" {
@@ -59,14 +58,8 @@ func listCmdRun(cmd *cobra.Command, args []string) {
 		log.Fatalf("Resource Group Name not specified.")
 	}
 
-	if email == "" {
-		log.Fatalf("Email address not specified.")
-	}
-
-	// Validate required environment variables (but don't require ACME auth for listing)
-	vaultURL := viper.GetString("key-vault-url")
 	if vaultURL == "" {
-		log.Fatalf("AZURE_KEY_VAULT_URL environment variable is required")
+		log.Fatalf("Azure Key Vault URL not specified.")
 	}
 
 	// Create Azure clients (no need for lego/ACME setup for listing)
@@ -75,17 +68,16 @@ func listCmdRun(cmd *cobra.Command, args []string) {
 		log.Fatalf("Failed to create Azure clients: %v", err)
 	}
 
-	utilities.LogDefault("List mode started: subscription=%s, resource_group=%s, key_vault=%s, expire_threshold=%d", subscriptionId, resourceGroupName, vaultURL, expireThreshold)
+	utilities.LogDefault("List mode started: subscription=%s, resource_group=%s, key_vault=%s", subscriptionId, resourceGroupName, vaultURL)
 
 	// Create zones enumerator and process zones with listing processor
 	enumerator := zones.NewEnumerator(azureClients)
 
 	listProcessor := &CertificateListProcessor{
-		kvClient:        azureClients.KVCert,
-		expireThreshold: expireThreshold,
+		kvClient: azureClients.KVCert,
 	}
 
-	if err := enumerator.EnumerateAndProcess(ctx, zonesList, resourceGroupName, expireThreshold, listProcessor.ProcessFQDN); err != nil {
+	if err := enumerator.EnumerateAndProcess(ctx, zonesList, resourceGroupName, 0, listProcessor.ProcessFQDN); err != nil {
 		log.Fatalf("Failed to enumerate and process zones: %v", err)
 	}
 
@@ -95,16 +87,15 @@ func listCmdRun(cmd *cobra.Command, args []string) {
 
 // CertificateListProcessor processes FQDNs for listing purposes
 type CertificateListProcessor struct {
-	kvClient        *azcertificates.Client
-	expireThreshold int
-	totalRecords    int
-	validCerts      int
-	expiredCerts    int
-	missingCerts    int
+	kvClient     *azcertificates.Client
+	totalRecords int
+	validCerts   int
+	expiredCerts int
+	missingCerts int
 }
 
 // ProcessFQDN processes a single FQDN for listing (matches zones.ProcessorFunc signature)
-func (p *CertificateListProcessor) ProcessFQDN(ctx context.Context, fqdn string, expireThreshold int) {
+func (p *CertificateListProcessor) ProcessFQDN(ctx context.Context, fqdn string, _ int) {
 	p.totalRecords++
 
 	certName := "cert-" + strings.ReplaceAll(fqdn, ".", "-")
@@ -124,12 +115,12 @@ func (p *CertificateListProcessor) ProcessFQDN(ctx context.Context, fqdn string,
 	if resp.Attributes != nil && resp.Attributes.Expires != nil {
 		daysLeft = int(time.Until(*resp.Attributes.Expires).Hours() / 24)
 
-		if daysLeft <= expireThreshold {
-			utilities.LogDefault("Certificate expires in %d days (threshold: %d)", daysLeft, expireThreshold)
-			p.expiredCerts++
-		} else {
+		if daysLeft > 0 {
 			utilities.LogDefault("Certificate valid for %d days", daysLeft)
 			p.validCerts++
+		} else {
+			utilities.LogDefault("Certificate expired")
+			p.expiredCerts++
 		}
 	} else {
 		utilities.LogDefault("Certificate found but expiration date unavailable")
