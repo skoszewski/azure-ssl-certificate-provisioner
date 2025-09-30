@@ -1,69 +1,51 @@
 package cli
 
 import (
+	"os"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
 	"azure-ssl-certificate-provisioner/internal/utilities"
-	"azure-ssl-certificate-provisioner/pkg/config"
 )
 
-// Commands holds all CLI commands
-type Commands struct {
-	templateGen *TemplateGenerator
-}
-
-// NewCommands creates a new commands instance
-func NewCommands() *Commands {
-	return &Commands{
-		templateGen: NewTemplateGenerator(),
+func Execute() {
+	if err := rootCmd.Execute(); err != nil {
+		// utilities.LogDefault("Command execution failed: %v", err)
+		os.Exit(1)
 	}
 }
 
-// CreateRootCommand creates the root cobra command
-func (c *Commands) CreateRootCommand() *cobra.Command {
-	var rootCmd = &cobra.Command{
-		Use:   "azure-ssl-certificate-provisioner",
-		Short: "Automatically provision SSL certificates from Let's Encrypt for Azure DNS zones",
-		Long: `Azure SSL Certificate Provisioner scans Azure DNS zones for records marked with 
-ACME metadata and automatically provisions SSL certificates using Let's Encrypt, 
-storing them in Azure Key Vault.`,
-		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			// Set global verbosity level from the flag first
-			verbose, _ := cmd.Flags().GetBool("verbose")
-			utilities.SetVerbose(verbose)
-			// Setup viper configuration globally for all commands
-			config.SetupViper()
-		},
-	}
+func init() {
+	// Initialize viper and configuration
+	cobra.OnInitialize(initConfig)
 
-	// Add global verbose flag
+	// configure root command
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose output")
 
-	// Create subcommands
-	runCmd := c.createRunCommand()
-	listCmd := c.createListCommand()
-	envCmd := c.createEnvironmentCommand()
-	createConfigCmd := c.createConfigCommand()
-	createSPCmd := c.createSPCommand()
-	deleteSPCmd := c.createDeleteServicePrincipalCommand()
+	// configure config command
+	configSetup()
+	rootCmd.AddCommand(configCmd)
 
-	// Configure flag bindings
-	c.setupFlagBindings(runCmd, listCmd, createSPCmd, deleteSPCmd)
-
-	// Add subcommands to root command
-	rootCmd.AddCommand(runCmd)
-	rootCmd.AddCommand(listCmd)
+	// configure environment command
+	envSetup()
 	rootCmd.AddCommand(envCmd)
-	rootCmd.AddCommand(createConfigCmd)
-	rootCmd.AddCommand(createSPCmd)
-	rootCmd.AddCommand(deleteSPCmd)
+}
 
-	return rootCmd
+func initConfig() {
+	viper.AddConfigPath(".")
+	viper.SetConfigName("config")
+	viper.AutomaticEnv()
+
+	if err := viper.ReadInConfig(); err == nil {
+		utilities.LogVerbose("Using config file: %s", viper.ConfigFileUsed())
+	} else {
+		utilities.LogVerbose("No config file found, relying on environment variables and flags")
+	}
 }
 
 // setupFlagBindings configures flag bindings to viper
-func (c *Commands) setupFlagBindings(runCmd, listCmd, createSPCmd, deleteSPCmd *cobra.Command) {
+func setupFlagBindings(runCmd, listCmd, createSPCmd, deleteSPCmd *cobra.Command) {
 	// Bind flags to viper for run command
 	viper.BindPFlag("zones", runCmd.Flags().Lookup("zones"))
 	viper.BindPFlag("subscription", runCmd.Flags().Lookup("subscription"))

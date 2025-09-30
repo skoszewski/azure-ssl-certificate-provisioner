@@ -1,50 +1,56 @@
 package cli
 
 import (
+	"fmt"
+	"slices"
+	"strings"
+
 	"github.com/spf13/cobra"
 
 	"azure-ssl-certificate-provisioner/internal/utilities"
 )
 
-// createEnvironmentCommand creates the environment command
-func (c *Commands) createEnvironmentCommand() *cobra.Command {
-	var envCmd = &cobra.Command{
-		Use:   "environment",
-		Short: "Generate environment variable templates",
-		Long:  `Generate Bash or PowerShell environment variable templates for required configuration.`,
-		Run: func(cmd *cobra.Command, args []string) {
-			// Use OS-appropriate shell if no subcommand is specified
-			msiType, _ := cmd.Flags().GetString("use-msi")
-			defaultShell := utilities.GetDefaultShell()
-			c.templateGen.GenerateEnvironmentTemplate(defaultShell, msiType)
-		},
+var envCmd = &cobra.Command{
+	Use:     "environment",
+	Short:   "Generate environment variable templates",
+	Long:    `Generate Bash or PowerShell environment variable templates for required configuration.`,
+	PreRunE: envPreRunE,
+	Run:     envRun,
+}
+
+var envShellTypes = []string{"bash", "powershell"}
+
+// Validate shell value
+func envPreRunE(cmd *cobra.Command, args []string) error {
+	shell, err := cmd.Flags().GetString("shell")
+	if err != nil {
+		return err
 	}
 
-	// Add --use-msi flag to the main command
-	envCmd.PersistentFlags().String("use-msi", "", "Generate template for Managed Identity authentication (system|user)")
-
-	// Create bash subcommand
-	bashCmd := &cobra.Command{
-		Use:   "bash",
-		Short: "Generate Bash environment variable template",
-		Run: func(cmd *cobra.Command, args []string) {
-			msiType, _ := cmd.Flags().GetString("use-msi")
-			c.templateGen.GenerateEnvironmentTemplate("bash", msiType)
-		},
+	if !slices.Contains(append(envShellTypes, ""), strings.ToLower(shell)) {
+		return fmt.Errorf("invalid shell type: %s (allowed: bash, powershell)", shell)
 	}
 
-	// Create PowerShell subcommand
-	powershellCmd := &cobra.Command{
-		Use:     "powershell",
-		Aliases: []string{"ps", "ps1"},
-		Short:   "Generate PowerShell environment variable template",
-		Run: func(cmd *cobra.Command, args []string) {
-			msiType, _ := cmd.Flags().GetString("use-msi")
-			c.templateGen.GenerateEnvironmentTemplate("powershell", msiType)
-		},
+	return nil
+}
+
+func envRun(cmd *cobra.Command, args []string) {
+	// Get flag values
+	msiType, _ := cmd.Flags().GetString("use-msi") // TODO: Move validation logic to PreRunE
+	chosenShell, _ := cmd.Flags().GetString("shell")
+
+	// Use OS-appropriate shell if no subcommand is specified
+	if chosenShell == "" {
+		chosenShell = utilities.GetDefaultShell()
 	}
 
-	envCmd.AddCommand(bashCmd)
-	envCmd.AddCommand(powershellCmd)
-	return envCmd
+	GenerateEnvironmentTemplate(chosenShell, msiType)
+}
+
+func envSetup() {
+	envCmd.PersistentFlags().String("use-msi", "", "Generate templated for MI authentication (system|user)")
+	envCmd.Flags().String("shell", "", "Chosen shell type")
+	envCmd.RegisterFlagCompletionFunc("shell", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return envShellTypes, cobra.ShellCompDirectiveNoFileComp
+	})
 }

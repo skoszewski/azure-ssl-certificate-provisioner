@@ -19,13 +19,13 @@ import (
 )
 
 // createRunCommand creates the run command
-func (c *Commands) createRunCommand() *cobra.Command {
+func createRunCommand() *cobra.Command {
 	var runCmd = &cobra.Command{
 		Use:   "run",
 		Short: "Run the SSL certificate provisioner",
 		Long:  `Scan Azure DNS zones and provision SSL certificates for records marked with ACME metadata.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			c.runCertificateProvisioner()
+			runCertificateProvisioner()
 		},
 	}
 
@@ -46,13 +46,13 @@ func (c *Commands) createRunCommand() *cobra.Command {
 }
 
 // createListCommand creates the list command
-func (c *Commands) createListCommand() *cobra.Command {
+func createListCommand() *cobra.Command {
 	var listCmd = &cobra.Command{
 		Use:   "list",
 		Short: "List DNS records and certificate status",
 		Long:  `Scan Azure DNS zones and list records that would be processed, along with their certificate status from Key Vault.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			c.listCertificatesAndRecords()
+			listCertificatesAndRecords()
 		},
 	}
 
@@ -68,7 +68,7 @@ func (c *Commands) createListCommand() *cobra.Command {
 }
 
 // runCertificateProvisioner executes the main certificate provisioning logic
-func (c *Commands) runCertificateProvisioner() {
+func runCertificateProvisioner() {
 	ctx := context.Background()
 
 	// Get configuration values

@@ -11,13 +11,13 @@ import (
 )
 
 // createSPCommand creates the create-sp command
-func (c *Commands) createSPCommand() *cobra.Command {
+func createSPCommand() *cobra.Command {
 	var createSPCmd = &cobra.Command{
 		Use:   "create-sp",
 		Short: "Create Azure service principal for SSL certificate provisioning",
 		Long:  `Create an Azure AD application and service principal with optional role assignments for DNS and Key Vault access.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			c.runCreateServicePrincipal()
+			runCreateServicePrincipal()
 		},
 	}
 
@@ -40,7 +40,7 @@ func (c *Commands) createSPCommand() *cobra.Command {
 }
 
 // runCreateServicePrincipal executes the service principal creation logic
-func (c *Commands) runCreateServicePrincipal() {
+func runCreateServicePrincipal() {
 	displayName := viper.GetString("sp-name")
 	tenantID := viper.GetString("azure-tenant-id")
 	subscriptionID := viper.GetString("subscription")
@@ -103,5 +103,5 @@ func (c *Commands) runCreateServicePrincipal() {
 
 	utilities.LogDefault("Service principal created: application_id=%s, client_id=%s, service_principal_id=%s", spInfo.ApplicationID, spInfo.ClientID, spInfo.ServicePrincipalID)
 
-	c.templateGen.GenerateServicePrincipalTemplate(spInfo, shell, keyVaultName, keyVaultResourceGroup)
+	GenerateServicePrincipalTemplate(spInfo, shell, keyVaultName, keyVaultResourceGroup)
 }

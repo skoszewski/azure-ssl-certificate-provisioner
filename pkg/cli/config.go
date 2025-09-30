@@ -1,26 +1,27 @@
 package cli
 
 import (
+	"azure-ssl-certificate-provisioner/internal/utilities"
+
 	"github.com/spf13/cobra"
 )
 
-// createConfigCommand creates the config command
-func (c *Commands) createConfigCommand() *cobra.Command {
-	var configCmd = &cobra.Command{
-		Use:   "config [format]",
-		Short: "Generate configuration file templates",
-		Long: `Generate configuration file templates in different formats.
+var configCmd = &cobra.Command{
+	Use:   "config",
+	Short: "Generate configuration file templates",
+	Long: `Generate configuration file templates in different formats.
 Supported formats: json, toml, yaml (default: yaml)
 For environment variables, use: azure-ssl-certificate-provisioner environment`,
-		Args: cobra.MaximumNArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			format := "yaml"
-			if len(args) > 0 {
-				format = args[0]
-			}
-			c.templateGen.GenerateConfigTemplate(format)
-		},
-	}
+	Args: cobra.MaximumNArgs(1),
+	Run:  configRun,
+}
 
-	return configCmd
+func configRun(cmd *cobra.Command, args []string) {
+	format, _ := cmd.Flags().GetString("format")
+	utilities.LogVerbose("The chosen format is %v", format)
+	GenerateConfigTemplate(format)
+}
+
+func configSetup() {
+	configCmd.Flags().StringP("format", "f", "yaml", "config file format")
 }

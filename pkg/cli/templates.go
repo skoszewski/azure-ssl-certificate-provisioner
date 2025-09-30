@@ -8,42 +8,34 @@ import (
 	"azure-ssl-certificate-provisioner/internal/utilities"
 )
 
-// TemplateGenerator handles generating environment variable templates
-type TemplateGenerator struct{}
-
-// NewTemplateGenerator creates a new template generator
-func NewTemplateGenerator() *TemplateGenerator {
-	return &TemplateGenerator{}
-}
-
 // GenerateEnvironmentTemplate generates environment variable templates
-func (g *TemplateGenerator) GenerateEnvironmentTemplate(shell string, msiType string) {
+func GenerateEnvironmentTemplate(shell string, msiType string) {
 	isUserMSI := msiType == "user"
 
 	switch strings.ToLower(shell) {
 	case "powershell", "ps1":
 		if msiType == "system" || msiType == "user" {
-			g.generateMSIPowerShellTemplate(isUserMSI)
+			generateMSIPowerShellTemplate(isUserMSI)
 		} else {
-			g.generatePowerShellTemplate()
+			generatePowerShellTemplate()
 		}
 	case "bash", "sh":
 		if msiType == "system" || msiType == "user" {
-			g.generateMSIBashTemplate(isUserMSI)
+			generateMSIBashTemplate(isUserMSI)
 		} else {
-			g.generateBashTemplate()
+			generateBashTemplate()
 		}
 	default:
 		utilities.LogDefault("Unsupported shell type: shell=%s, supported=bash,powershell", shell)
 		if msiType == "system" || msiType == "user" {
-			g.generateMSIBashTemplate(isUserMSI)
+			generateMSIBashTemplate(isUserMSI)
 		} else {
-			g.generateBashTemplate()
+			generateBashTemplate()
 		}
 	}
 }
 
-func (g *TemplateGenerator) generateBashTemplate() {
+func generateBashTemplate() {
 	fmt.Print(`# ACME account email for Let's Encrypt registration
 export LEGO_EMAIL="your-email@example.com"
 # Azure subscription and resource group
@@ -54,10 +46,11 @@ export AZURE_KEY_VAULT_URL="https://your-keyvault.vault.azure.net/"
 # Azure authentication (Service Principal)
 export AZURE_CLIENT_ID="your-service-principal-client-id"
 export AZURE_CLIENT_SECRET="your-service-principal-client-secret"
-export AZURE_TENANT_ID="your-azure-tenant-id"`)
+export AZURE_TENANT_ID="your-azure-tenant-id"
+`)
 }
 
-func (g *TemplateGenerator) generatePowerShellTemplate() {
+func generatePowerShellTemplate() {
 	fmt.Print(`# ACME account email for Let's Encrypt registration
 $env:LEGO_EMAIL = "your-email@example.com"
 # Azure subscription and resource group
@@ -68,23 +61,24 @@ $env:AZURE_KEY_VAULT_URL = "https://your-keyvault.vault.azure.net/"
 # Azure authentication (Service Principal)
 $env:AZURE_CLIENT_ID = "your-service-principal-client-id"
 $env:AZURE_CLIENT_SECRET = "your-service-principal-client-secret"
-$env:AZURE_TENANT_ID = "your-azure-tenant-id"`)
+$env:AZURE_TENANT_ID = "your-azure-tenant-id"
+`)
 }
 
 // GenerateServicePrincipalTemplate generates environment variable templates with actual SP values
-func (g *TemplateGenerator) GenerateServicePrincipalTemplate(spInfo *types.ServicePrincipalInfo, shell, keyVaultName, keyVaultResourceGroup string) {
+func GenerateServicePrincipalTemplate(spInfo *types.ServicePrincipalInfo, shell, keyVaultName, keyVaultResourceGroup string) {
 	switch strings.ToLower(shell) {
 	case "powershell", "ps1":
-		g.generateServicePrincipalPowerShellTemplate(spInfo, keyVaultName, keyVaultResourceGroup)
+		generateServicePrincipalPowerShellTemplate(spInfo, keyVaultName, keyVaultResourceGroup)
 	case "bash", "sh":
-		g.generateServicePrincipalBashTemplate(spInfo, keyVaultName, keyVaultResourceGroup)
+		generateServicePrincipalBashTemplate(spInfo, keyVaultName, keyVaultResourceGroup)
 	default:
 		utilities.LogDefault("Unsupported shell type: shell=%s, using=bash", shell)
-		g.generateServicePrincipalBashTemplate(spInfo, keyVaultName, keyVaultResourceGroup)
+		generateServicePrincipalBashTemplate(spInfo, keyVaultName, keyVaultResourceGroup)
 	}
 }
 
-func (g *TemplateGenerator) generateServicePrincipalBashTemplate(spInfo *types.ServicePrincipalInfo, keyVaultName, keyVaultResourceGroup string) {
+func generateServicePrincipalBashTemplate(spInfo *types.ServicePrincipalInfo, keyVaultName, keyVaultResourceGroup string) {
 	fmt.Println("export LEGO_EMAIL=\"your-email@example.com\"")
 	fmt.Printf("export AZURE_SUBSCRIPTION_ID=\"%s\"\n", spInfo.SubscriptionID)
 	fmt.Printf("export AZURE_TENANT_ID=\"%s\"\n", spInfo.TenantID)
@@ -108,7 +102,7 @@ func (g *TemplateGenerator) generateServicePrincipalBashTemplate(spInfo *types.S
 	}
 }
 
-func (g *TemplateGenerator) generateServicePrincipalPowerShellTemplate(spInfo *types.ServicePrincipalInfo, keyVaultName, keyVaultResourceGroup string) {
+func generateServicePrincipalPowerShellTemplate(spInfo *types.ServicePrincipalInfo, keyVaultName, keyVaultResourceGroup string) {
 	fmt.Println("$env:LEGO_EMAIL = \"your-email@example.com\"")
 	fmt.Printf("$env:AZURE_SUBSCRIPTION_ID = \"%s\"\n", spInfo.SubscriptionID)
 	fmt.Printf("$env:AZURE_TENANT_ID = \"%s\"\n", spInfo.TenantID)
@@ -133,7 +127,7 @@ func (g *TemplateGenerator) generateServicePrincipalPowerShellTemplate(spInfo *t
 }
 
 // MSI template methods
-func (g *TemplateGenerator) generateMSIBashTemplate(isUserMSI bool) {
+func generateMSIBashTemplate(isUserMSI bool) {
 	fmt.Print(`# ACME account email for Let's Encrypt registration
 export LEGO_EMAIL="your-email@example.com"
 # Azure subscription and resource group
@@ -142,13 +136,14 @@ export AZURE_RESOURCE_GROUP="your-resource-group-name"
 # Azure Key Vault for certificate storage
 export AZURE_KEY_VAULT_URL="https://your-keyvault.vault.azure.net/"
 # Azure authentication (Managed Identity)
-export AZURE_AUTH_METHOD="msi"`)
+export AZURE_AUTH_METHOD="msi"
+`)
 	if isUserMSI {
-		fmt.Print("\nexport AZURE_CLIENT_ID=\"your-user-assigned-msi-client-id\"")
+		fmt.Print("export AZURE_CLIENT_ID=\"your-user-assigned-msi-client-id\"")
 	}
 }
 
-func (g *TemplateGenerator) generateMSIPowerShellTemplate(isUserMSI bool) {
+func generateMSIPowerShellTemplate(isUserMSI bool) {
 	fmt.Print(`# ACME account email for Let's Encrypt registration
 $env:LEGO_EMAIL = "your-email@example.com"
 # Azure subscription and resource group
@@ -157,21 +152,22 @@ $env:AZURE_RESOURCE_GROUP = "your-resource-group-name"
 # Azure Key Vault for certificate storage
 $env:AZURE_KEY_VAULT_URL = "https://your-keyvault.vault.azure.net/"
 # Azure authentication (Managed Identity)
-$env:AZURE_AUTH_METHOD = "msi"`)
+$env:AZURE_AUTH_METHOD = "msi"
+`)
 	if isUserMSI {
-		fmt.Print("\n$env:AZURE_CLIENT_ID = \"your-user-assigned-msi-client-id\"")
+		fmt.Print("$env:AZURE_CLIENT_ID = \"your-user-assigned-msi-client-id\"")
 	}
 }
 
 // GenerateConfigTemplate generates configuration templates in different formats
-func (g *TemplateGenerator) GenerateConfigTemplate(format string) {
+func GenerateConfigTemplate(format string) {
 	switch format {
 	case "json":
-		g.generateJSONConfig()
+		generateJSONConfig()
 	case "toml":
-		g.generateTOMLConfig()
+		generateTOMLConfig()
 	case "yaml", "yml":
-		g.generateYAMLConfig()
+		generateYAMLConfig()
 	default:
 		fmt.Printf("Error: Unsupported format '%s'. Supported formats: json, toml, yaml\n", format)
 		fmt.Printf("For environment variables, use: azure-ssl-certificate-provisioner environment\n")
@@ -180,7 +176,7 @@ func (g *TemplateGenerator) GenerateConfigTemplate(format string) {
 }
 
 // generateJSONConfig generates JSON configuration template
-func (g *TemplateGenerator) generateJSONConfig() {
+func generateJSONConfig() {
 	fmt.Print(`{
   "subscription": "your-azure-subscription-id",
   "resource-group": "your-resource-group-name",
@@ -198,11 +194,12 @@ func (g *TemplateGenerator) generateJSONConfig() {
   "sp-no-roles": false,
   "sp-use-cert-auth": false,
   "shell": "bash"
-}`)
+}
+`)
 }
 
 // generateTOMLConfig generates TOML configuration template
-func (g *TemplateGenerator) generateTOMLConfig() {
+func generateTOMLConfig() {
 	fmt.Print(`# Azure SSL Certificate Provisioner Configuration
 subscription = "your-azure-subscription-id"
 resource-group = "your-resource-group-name"
@@ -219,11 +216,12 @@ kv-name = "your-keyvault-name"
 kv-resource-group = "your-keyvault-resource-group"
 sp-no-roles = false
 sp-use-cert-auth = false
-shell = "bash"`)
+shell = "bash"
+`)
 }
 
 // generateYAMLConfig generates YAML configuration template
-func (g *TemplateGenerator) generateYAMLConfig() {
+func generateYAMLConfig() {
 	fmt.Print(`# Azure SSL Certificate Provisioner Configuration
 subscription: "your-azure-subscription-id"
 resource-group: "your-resource-group-name"
@@ -242,5 +240,6 @@ kv-name: "your-keyvault-name"
 kv-resource-group: "your-keyvault-resource-group"
 sp-no-roles: false
 sp-use-cert-auth: false
-shell: "bash"`)
+shell: "bash"
+`)
 }

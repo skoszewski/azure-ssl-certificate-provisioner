@@ -15,7 +15,7 @@ import (
 )
 
 // listCertificatesAndRecords lists DNS records and their certificate status
-func (c *Commands) listCertificatesAndRecords() {
+func listCertificatesAndRecords() {
 	ctx := context.Background()
 
 	// Get configuration values (using same keys as run command)

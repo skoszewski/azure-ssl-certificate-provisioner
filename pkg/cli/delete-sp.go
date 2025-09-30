@@ -11,7 +11,7 @@ import (
 )
 
 // createDeleteServicePrincipalCommand creates the delete-sp command
-func (c *Commands) createDeleteServicePrincipalCommand() *cobra.Command {
+func createDeleteServicePrincipalCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete-sp",
 		Short: "Delete Azure AD Application and Service Principal with role cleanup",
@@ -22,7 +22,7 @@ This command will:
 3. Delete the service principal
 4. Delete the Azure AD application
 5. Clean up local certificate files`,
-		RunE: c.runDeleteServicePrincipal,
+		RunE: runDeleteServicePrincipal,
 	}
 
 	// Add flags
@@ -38,7 +38,7 @@ This command will:
 }
 
 // runDeleteServicePrincipal executes the delete-sp command
-func (c *Commands) runDeleteServicePrincipal(cmd *cobra.Command, args []string) error {
+func runDeleteServicePrincipal(cmd *cobra.Command, args []string) error {
 	clientID := viper.GetString("delete-sp-client-id")
 	tenantID := viper.GetString("azure-tenant-id")
 	subscriptionID := viper.GetString("subscription")
