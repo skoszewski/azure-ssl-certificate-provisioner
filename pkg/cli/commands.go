@@ -3,8 +3,6 @@ package cli
 import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-
-	"azure-ssl-certificate-provisioner/pkg/config"
 )
 
 // Commands holds all CLI commands
@@ -33,6 +31,7 @@ storing them in Azure Key Vault.`,
 	runCmd := c.createRunCommand()
 	listCmd := c.createListCommand()
 	envCmd := c.createEnvironmentCommand()
+	createConfigCmd := c.createConfigCommand()
 	createSPCmd := c.createSPCommand()
 	deleteSPCmd := c.createDeleteServicePrincipalCommand()
 
@@ -43,6 +42,7 @@ storing them in Azure Key Vault.`,
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(envCmd)
+	rootCmd.AddCommand(createConfigCmd)
 	rootCmd.AddCommand(createSPCmd)
 	rootCmd.AddCommand(deleteSPCmd)
 
@@ -51,8 +51,7 @@ storing them in Azure Key Vault.`,
 
 // setupFlagBindings configures flag bindings to viper
 func (c *Commands) setupFlagBindings(runCmd, listCmd, createSPCmd, deleteSPCmd *cobra.Command) {
-	// Setup viper configuration first (environment variable bindings)
-	config.SetupViper()
+	// Note: Viper setup is now done lazily in each command that needs it
 
 	// Bind flags to viper for run command
 	viper.BindPFlag("zones", runCmd.Flags().Lookup("zones"))
@@ -62,27 +61,27 @@ func (c *Commands) setupFlagBindings(runCmd, listCmd, createSPCmd, deleteSPCmd *
 	viper.BindPFlag("expire-threshold", runCmd.Flags().Lookup("expire-threshold"))
 	viper.BindPFlag("email", runCmd.Flags().Lookup("email"))
 
-	// Bind flags to viper for list command (same as run command)
-	viper.BindPFlag("list-zones", listCmd.Flags().Lookup("zones"))
-	viper.BindPFlag("list-subscription", listCmd.Flags().Lookup("subscription"))
-	viper.BindPFlag("list-resource-group", listCmd.Flags().Lookup("resource-group"))
-	viper.BindPFlag("list-staging", listCmd.Flags().Lookup("staging"))
-	viper.BindPFlag("list-expire-threshold", listCmd.Flags().Lookup("expire-threshold"))
-	viper.BindPFlag("list-email", listCmd.Flags().Lookup("email"))
+	// Bind flags to viper for list command (reuse same bindings as run command)
+	viper.BindPFlag("zones", listCmd.Flags().Lookup("zones"))
+	viper.BindPFlag("subscription", listCmd.Flags().Lookup("subscription"))
+	viper.BindPFlag("resource-group", listCmd.Flags().Lookup("resource-group"))
+	viper.BindPFlag("staging", listCmd.Flags().Lookup("staging"))
+	viper.BindPFlag("expire-threshold", listCmd.Flags().Lookup("expire-threshold"))
+	viper.BindPFlag("email", listCmd.Flags().Lookup("email"))
 
-	// Bind flags for create-sp command (using sp- prefix to avoid conflicts)
+	// Bind flags for create-sp command
 	viper.BindPFlag("sp-name", createSPCmd.Flags().Lookup("name"))
-	viper.BindPFlag("sp-tenant-id", createSPCmd.Flags().Lookup("tenant-id"))
-	viper.BindPFlag("sp-subscription-id", createSPCmd.Flags().Lookup("subscription-id"))
-	viper.BindPFlag("sp-resource-group", createSPCmd.Flags().Lookup("resource-group"))
-	viper.BindPFlag("sp-kv-name", createSPCmd.Flags().Lookup("kv-name"))
-	viper.BindPFlag("sp-kv-resource-group", createSPCmd.Flags().Lookup("kv-resource-group"))
+	viper.BindPFlag("azure-tenant-id", createSPCmd.Flags().Lookup("tenant-id"))
+	viper.BindPFlag("subscription", createSPCmd.Flags().Lookup("subscription-id"))
+	viper.BindPFlag("resource-group", createSPCmd.Flags().Lookup("resource-group"))
+	viper.BindPFlag("kv-name", createSPCmd.Flags().Lookup("kv-name"))
+	viper.BindPFlag("kv-resource-group", createSPCmd.Flags().Lookup("kv-resource-group"))
 	viper.BindPFlag("sp-no-roles", createSPCmd.Flags().Lookup("no-roles"))
 	viper.BindPFlag("sp-use-cert-auth", createSPCmd.Flags().Lookup("use-cert-auth"))
-	viper.BindPFlag("sp-shell", createSPCmd.Flags().Lookup("shell"))
+	viper.BindPFlag("shell", createSPCmd.Flags().Lookup("shell"))
 
 	// Bind flags for delete-service-principal command
 	viper.BindPFlag("delete-sp-client-id", deleteSPCmd.Flags().Lookup("client-id"))
-	viper.BindPFlag("delete-sp-tenant-id", deleteSPCmd.Flags().Lookup("tenant-id"))
-	viper.BindPFlag("delete-sp-subscription-id", deleteSPCmd.Flags().Lookup("subscription-id"))
+	viper.BindPFlag("azure-tenant-id", deleteSPCmd.Flags().Lookup("tenant-id"))
+	viper.BindPFlag("subscription", deleteSPCmd.Flags().Lookup("subscription-id"))
 }

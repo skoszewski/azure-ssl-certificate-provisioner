@@ -70,6 +70,9 @@ func (c *Commands) createListCommand() *cobra.Command {
 func (c *Commands) runCertificateProvisioner() {
 	ctx := context.Background()
 
+	// Setup configuration loading
+	config.SetupViper()
+
 	// Get configuration values
 	zonesList := viper.GetStringSlice("zones")
 	subscriptionId := viper.GetString("subscription")

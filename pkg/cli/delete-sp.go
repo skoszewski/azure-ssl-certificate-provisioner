@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/viper"
 
 	"azure-ssl-certificate-provisioner/pkg/azure"
+	"azure-ssl-certificate-provisioner/pkg/config"
 )
 
 // createDeleteServicePrincipalCommand creates the delete-sp command
@@ -39,9 +40,12 @@ This command will:
 
 // runDeleteServicePrincipal executes the delete-sp command
 func (c *Commands) runDeleteServicePrincipal(cmd *cobra.Command, args []string) error {
+	// Setup configuration loading
+	config.SetupViper()
+
 	clientID := viper.GetString("delete-sp-client-id")
-	tenantID := viper.GetString("delete-sp-tenant-id")
-	subscriptionID := viper.GetString("delete-sp-subscription-id")
+	tenantID := viper.GetString("azure-tenant-id")
+	subscriptionID := viper.GetString("subscription")
 
 	if clientID == "" {
 		return fmt.Errorf("client-id is required")

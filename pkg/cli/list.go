@@ -11,35 +11,22 @@ import (
 
 	"azure-ssl-certificate-provisioner/internal/zones"
 	"azure-ssl-certificate-provisioner/pkg/azure"
+	"azure-ssl-certificate-provisioner/pkg/config"
 )
 
 // listCertificatesAndRecords lists DNS records and their certificate status
 func (c *Commands) listCertificatesAndRecords() {
 	ctx := context.Background()
 
-	// Get configuration values (using list- prefixed keys from viper)
-	zonesList := viper.GetStringSlice("list-zones")
-	subscriptionId := viper.GetString("list-subscription")
-	resourceGroupName := viper.GetString("list-resource-group")
-	expireThreshold := viper.GetInt("list-expire-threshold")
-	email := viper.GetString("list-email")
+	// Setup configuration loading
+	config.SetupViper()
 
-	// Fallback to non-prefixed keys for backward compatibility
-	if subscriptionId == "" {
-		subscriptionId = viper.GetString("subscription")
-	}
-	if resourceGroupName == "" {
-		resourceGroupName = viper.GetString("resource-group")
-	}
-	if expireThreshold == 0 {
-		expireThreshold = viper.GetInt("expire-threshold")
-	}
-	if email == "" {
-		email = viper.GetString("email")
-	}
-	if len(zonesList) == 0 {
-		zonesList = viper.GetStringSlice("zones")
-	}
+	// Get configuration values (using same keys as run command)
+	zonesList := viper.GetStringSlice("zones")
+	subscriptionId := viper.GetString("subscription")
+	resourceGroupName := viper.GetString("resource-group")
+	expireThreshold := viper.GetInt("expire-threshold")
+	email := viper.GetString("email")
 
 	// Validate required parameters
 	if subscriptionId == "" {

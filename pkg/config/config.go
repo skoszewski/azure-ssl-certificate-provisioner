@@ -69,8 +69,28 @@ func ValidateRequiredEnvVars() error {
 	return nil
 }
 
-// SetupViper configures viper with environment variable bindings
+// SetupViper configures viper with environment variable bindings and configuration file loading
 func SetupViper() {
+	// Configure configuration file loading (multi-format support)
+	viper.SetConfigName("config") // Look for config.* files
+	viper.AddConfigPath(".")      // Look in current directory
+
+	// Enable automatic environment variable support
+	viper.AutomaticEnv()
+
+	// Try to read configuration file
+	if err := viper.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			// Config file not found - this is okay, we'll use env vars and flags
+			log.Printf("No configuration file found, using environment variables and command-line flags")
+		} else {
+			// Config file was found but another error was produced
+			log.Printf("Error reading configuration file: %v", err)
+		}
+	} else {
+		log.Printf("Using configuration file: %s", viper.ConfigFileUsed())
+	}
+
 	// Set environment variable bindings
 	viper.BindEnv("subscription", "AZURE_SUBSCRIPTION_ID")
 	viper.BindEnv("resource-group", "AZURE_RESOURCE_GROUP")

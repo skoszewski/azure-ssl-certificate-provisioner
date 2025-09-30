@@ -8,6 +8,7 @@ import (
 
 	"azure-ssl-certificate-provisioner/internal/utilities"
 	"azure-ssl-certificate-provisioner/pkg/azure"
+	"azure-ssl-certificate-provisioner/pkg/config"
 )
 
 // createSPCommand creates the create-sp command
@@ -41,15 +42,18 @@ func (c *Commands) createSPCommand() *cobra.Command {
 
 // runCreateServicePrincipal executes the service principal creation logic
 func (c *Commands) runCreateServicePrincipal() {
+	// Setup configuration loading
+	config.SetupViper()
+
 	displayName := viper.GetString("sp-name")
-	tenantID := viper.GetString("sp-tenant-id")
-	subscriptionID := viper.GetString("sp-subscription-id")
-	resourceGroup := viper.GetString("sp-resource-group")
-	keyVaultName := viper.GetString("sp-kv-name")
-	keyVaultResourceGroup := viper.GetString("sp-kv-resource-group")
+	tenantID := viper.GetString("azure-tenant-id")
+	subscriptionID := viper.GetString("subscription")
+	resourceGroup := viper.GetString("resource-group")
+	keyVaultName := viper.GetString("kv-name")
+	keyVaultResourceGroup := viper.GetString("kv-resource-group")
 	noRoles := viper.GetBool("sp-no-roles")
 	useCertAuth := viper.GetBool("sp-use-cert-auth")
-	shell := viper.GetString("sp-shell")
+	shell := viper.GetString("shell")
 
 	// Automatically assign DNS role if resource group is provided (unless --no-roles is specified)
 	assignRole := resourceGroup != "" && !noRoles

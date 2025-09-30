@@ -44,31 +44,31 @@ func (g *TemplateGenerator) GenerateEnvironmentTemplate(shell string, msiType st
 }
 
 func (g *TemplateGenerator) generateBashTemplate() {
-	fmt.Println("# ACME account email for Let's Encrypt registration")
-	fmt.Println("export LEGO_EMAIL=\"your-email@example.com\"")
-	fmt.Println("# Azure subscription and resource group")
-	fmt.Println("export AZURE_SUBSCRIPTION_ID=\"your-azure-subscription-id\"")
-	fmt.Println("export AZURE_RESOURCE_GROUP=\"your-resource-group-name\"")
-	fmt.Println("# Azure Key Vault for certificate storage")
-	fmt.Println("export AZURE_KEY_VAULT_URL=\"https://your-keyvault.vault.azure.net/\"")
-	fmt.Println("# Azure authentication (Service Principal)")
-	fmt.Println("export AZURE_CLIENT_ID=\"your-service-principal-client-id\"")
-	fmt.Println("export AZURE_CLIENT_SECRET=\"your-service-principal-client-secret\"")
-	fmt.Println("export AZURE_TENANT_ID=\"your-azure-tenant-id\"")
+	fmt.Print(`# ACME account email for Let's Encrypt registration
+export LEGO_EMAIL="your-email@example.com"
+# Azure subscription and resource group
+export AZURE_SUBSCRIPTION_ID="your-azure-subscription-id"
+export AZURE_RESOURCE_GROUP="your-resource-group-name"
+# Azure Key Vault for certificate storage
+export AZURE_KEY_VAULT_URL="https://your-keyvault.vault.azure.net/"
+# Azure authentication (Service Principal)
+export AZURE_CLIENT_ID="your-service-principal-client-id"
+export AZURE_CLIENT_SECRET="your-service-principal-client-secret"
+export AZURE_TENANT_ID="your-azure-tenant-id"`)
 }
 
 func (g *TemplateGenerator) generatePowerShellTemplate() {
-	fmt.Println("# ACME account email for Let's Encrypt registration")
-	fmt.Println("$env:LEGO_EMAIL = \"your-email@example.com\"")
-	fmt.Println("# Azure subscription and resource group")
-	fmt.Println("$env:AZURE_SUBSCRIPTION_ID = \"your-azure-subscription-id\"")
-	fmt.Println("$env:AZURE_RESOURCE_GROUP = \"your-resource-group-name\"")
-	fmt.Println("# Azure Key Vault for certificate storage")
-	fmt.Println("$env:AZURE_KEY_VAULT_URL = \"https://your-keyvault.vault.azure.net/\"")
-	fmt.Println("# Azure authentication (Service Principal)")
-	fmt.Println("$env:AZURE_CLIENT_ID = \"your-service-principal-client-id\"")
-	fmt.Println("$env:AZURE_CLIENT_SECRET = \"your-service-principal-client-secret\"")
-	fmt.Println("$env:AZURE_TENANT_ID = \"your-azure-tenant-id\"")
+	fmt.Print(`# ACME account email for Let's Encrypt registration
+$env:LEGO_EMAIL = "your-email@example.com"
+# Azure subscription and resource group
+$env:AZURE_SUBSCRIPTION_ID = "your-azure-subscription-id"
+$env:AZURE_RESOURCE_GROUP = "your-resource-group-name"
+# Azure Key Vault for certificate storage
+$env:AZURE_KEY_VAULT_URL = "https://your-keyvault.vault.azure.net/"
+# Azure authentication (Service Principal)
+$env:AZURE_CLIENT_ID = "your-service-principal-client-id"
+$env:AZURE_CLIENT_SECRET = "your-service-principal-client-secret"
+$env:AZURE_TENANT_ID = "your-azure-tenant-id"`)
 }
 
 // GenerateServicePrincipalTemplate generates environment variable templates with actual SP values
@@ -134,31 +134,113 @@ func (g *TemplateGenerator) generateServicePrincipalPowerShellTemplate(spInfo *t
 
 // MSI template methods
 func (g *TemplateGenerator) generateMSIBashTemplate(isUserMSI bool) {
-	fmt.Println("# ACME account email for Let's Encrypt registration")
-	fmt.Println("export LEGO_EMAIL=\"your-email@example.com\"")
-	fmt.Println("# Azure subscription and resource group")
-	fmt.Println("export AZURE_SUBSCRIPTION_ID=\"your-azure-subscription-id\"")
-	fmt.Println("export AZURE_RESOURCE_GROUP=\"your-resource-group-name\"")
-	fmt.Println("# Azure Key Vault for certificate storage")
-	fmt.Println("export AZURE_KEY_VAULT_URL=\"https://your-keyvault.vault.azure.net/\"")
-	fmt.Println("# Azure authentication (Managed Identity)")
-	fmt.Println("export AZURE_AUTH_METHOD=\"msi\"")
+	fmt.Print(`# ACME account email for Let's Encrypt registration
+export LEGO_EMAIL="your-email@example.com"
+# Azure subscription and resource group
+export AZURE_SUBSCRIPTION_ID="your-azure-subscription-id"
+export AZURE_RESOURCE_GROUP="your-resource-group-name"
+# Azure Key Vault for certificate storage
+export AZURE_KEY_VAULT_URL="https://your-keyvault.vault.azure.net/"
+# Azure authentication (Managed Identity)
+export AZURE_AUTH_METHOD="msi"`)
 	if isUserMSI {
-		fmt.Println("export AZURE_CLIENT_ID=\"your-user-assigned-msi-client-id\"")
+		fmt.Print("\nexport AZURE_CLIENT_ID=\"your-user-assigned-msi-client-id\"")
 	}
 }
 
 func (g *TemplateGenerator) generateMSIPowerShellTemplate(isUserMSI bool) {
-	fmt.Println("# ACME account email for Let's Encrypt registration")
-	fmt.Println("$env:LEGO_EMAIL = \"your-email@example.com\"")
-	fmt.Println("# Azure subscription and resource group")
-	fmt.Println("$env:AZURE_SUBSCRIPTION_ID = \"your-azure-subscription-id\"")
-	fmt.Println("$env:AZURE_RESOURCE_GROUP = \"your-resource-group-name\"")
-	fmt.Println("# Azure Key Vault for certificate storage")
-	fmt.Println("$env:AZURE_KEY_VAULT_URL = \"https://your-keyvault.vault.azure.net/\"")
-	fmt.Println("# Azure authentication (Managed Identity)")
-	fmt.Println("$env:AZURE_AUTH_METHOD = \"msi\"")
+	fmt.Print(`# ACME account email for Let's Encrypt registration
+$env:LEGO_EMAIL = "your-email@example.com"
+# Azure subscription and resource group
+$env:AZURE_SUBSCRIPTION_ID = "your-azure-subscription-id"
+$env:AZURE_RESOURCE_GROUP = "your-resource-group-name"
+# Azure Key Vault for certificate storage
+$env:AZURE_KEY_VAULT_URL = "https://your-keyvault.vault.azure.net/"
+# Azure authentication (Managed Identity)
+$env:AZURE_AUTH_METHOD = "msi"`)
 	if isUserMSI {
-		fmt.Println("$env:AZURE_CLIENT_ID = \"your-user-assigned-msi-client-id\"")
+		fmt.Print("\n$env:AZURE_CLIENT_ID = \"your-user-assigned-msi-client-id\"")
 	}
+}
+
+// GenerateConfigTemplate generates configuration templates in different formats
+func (g *TemplateGenerator) GenerateConfigTemplate(format string) {
+	switch format {
+	case "json":
+		g.generateJSONConfig()
+	case "toml":
+		g.generateTOMLConfig()
+	case "yaml", "yml":
+		g.generateYAMLConfig()
+	default:
+		fmt.Printf("Error: Unsupported format '%s'. Supported formats: json, toml, yaml\n", format)
+		fmt.Printf("For environment variables, use: azure-ssl-certificate-provisioner environment\n")
+		return
+	}
+}
+
+// generateJSONConfig generates JSON configuration template
+func (g *TemplateGenerator) generateJSONConfig() {
+	fmt.Print(`{
+  "subscription": "your-azure-subscription-id",
+  "resource-group": "your-resource-group-name",
+  "key-vault-url": "https://your-keyvault.vault.azure.net/",
+  "email": "your-email@example.com",
+  "staging": true,
+  "expire-threshold": 7,
+  "azure-client-id": "your-service-principal-client-id",
+  "azure-client-secret": "your-service-principal-client-secret",
+  "azure-tenant-id": "your-azure-tenant-id",
+  "zones": ["example.com", "subdomain.example.com"],
+  "sp-name": "azure-ssl-cert-provisioner",
+  "kv-name": "your-keyvault-name",
+  "kv-resource-group": "your-keyvault-resource-group",
+  "sp-no-roles": false,
+  "sp-use-cert-auth": false,
+  "shell": "bash"
+}`)
+}
+
+// generateTOMLConfig generates TOML configuration template
+func (g *TemplateGenerator) generateTOMLConfig() {
+	fmt.Print(`# Azure SSL Certificate Provisioner Configuration
+subscription = "your-azure-subscription-id"
+resource-group = "your-resource-group-name"
+key-vault-url = "https://your-keyvault.vault.azure.net/"
+email = "your-email@example.com"
+staging = true
+expire-threshold = 7
+azure-client-id = "your-service-principal-client-id"
+azure-client-secret = "your-service-principal-client-secret"
+azure-tenant-id = "your-azure-tenant-id"
+zones = ["example.com", "subdomain.example.com"]
+sp-name = "azure-ssl-cert-provisioner"
+kv-name = "your-keyvault-name"
+kv-resource-group = "your-keyvault-resource-group"
+sp-no-roles = false
+sp-use-cert-auth = false
+shell = "bash"`)
+}
+
+// generateYAMLConfig generates YAML configuration template
+func (g *TemplateGenerator) generateYAMLConfig() {
+	fmt.Print(`# Azure SSL Certificate Provisioner Configuration
+subscription: "your-azure-subscription-id"
+resource-group: "your-resource-group-name"
+key-vault-url: "https://your-keyvault.vault.azure.net/"
+email: "your-email@example.com"
+staging: true
+expire-threshold: 7
+azure-client-id: "your-service-principal-client-id"
+azure-client-secret: "your-service-principal-client-secret"
+azure-tenant-id: "your-azure-tenant-id"
+zones:
+  - "example.com"
+  - "subdomain.example.com"
+sp-name: "azure-ssl-cert-provisioner"
+kv-name: "your-keyvault-name"
+kv-resource-group: "your-keyvault-resource-group"
+sp-no-roles: false
+sp-use-cert-auth: false
+shell: "bash"`)
 }

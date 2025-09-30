@@ -41,6 +41,101 @@ go build -o azure-ssl-certificate-provisioner .
 
 ## Configuration
 
+The Azure SSL Certificate Provisioner supports multiple configuration methods with the following priority order:
+
+1. **Command-line flags** (highest priority)
+2. **Environment variables**
+3. **Configuration files**
+4. **Default values** (lowest priority)
+
+### Configuration Files
+
+The tool supports loading configuration from files in multiple formats. It looks for a file named `config.*` in the current working directory:
+
+- `config.yaml` or `config.yml` (YAML format) - *Recommended*
+- `config.json` (JSON format)
+- `config.toml` (TOML format)
+- `config.env` (Environment file format)
+
+Use the `config` command to generate templates for any of these formats.
+
+#### Generating Configuration Files
+
+Use the `config` command to generate configuration templates in your preferred format:
+
+```bash
+# Generate YAML configuration (default - most user-friendly)
+./azure-ssl-certificate-provisioner config > config.yaml
+
+# Generate specific formats
+./azure-ssl-certificate-provisioner config yaml > config.yaml
+./azure-ssl-certificate-provisioner config json > config.json
+./azure-ssl-certificate-provisioner config toml > config.toml
+
+# For environment variables, use the environment command instead
+./azure-ssl-certificate-provisioner environment bash > .env
+```
+
+**YAML Configuration Example (`config.yaml`):**
+```yaml
+# Azure Configuration
+subscription: "your-azure-subscription-id"
+resource-group: "your-resource-group-name"
+key-vault-url: "https://your-keyvault.vault.azure.net/"
+
+# ACME Configuration
+email: "your-email@example.com"
+staging: true
+expire-threshold: 7
+
+# Azure Authentication (Service Principal)
+azure-client-id: "your-service-principal-client-id"
+azure-client-secret: "your-service-principal-client-secret"
+azure-tenant-id: "your-azure-tenant-id"
+
+# DNS Zones (optional)
+zones:
+  - "example.com"
+  - "subdomain.example.com"
+```
+
+**JSON Configuration Example (`config.json`):**
+```json
+{
+  "subscription": "your-azure-subscription-id",
+  "resource-group": "your-resource-group-name",
+  "key-vault-url": "https://your-keyvault.vault.azure.net/",
+  "email": "your-email@example.com",
+  "staging": true,
+  "expire-threshold": 7,
+  "azure-client-id": "your-service-principal-client-id",
+  "azure-client-secret": "your-service-principal-client-secret",
+  "azure-tenant-id": "your-azure-tenant-id",
+  "zones": ["example.com", "subdomain.example.com"]
+}
+```
+
+**TOML Configuration Example (`config.toml`):**
+```toml
+# Azure Configuration
+subscription = "your-azure-subscription-id"
+resource-group = "your-resource-group-name"
+key-vault-url = "https://your-keyvault.vault.azure.net/"
+
+# ACME Configuration
+email = "your-email@example.com"
+staging = true
+expire-threshold = 7
+
+# Azure Authentication (Service Principal)
+azure-client-id = "your-service-principal-client-id"
+azure-client-secret = "your-service-principal-client-secret"
+azure-tenant-id = "your-azure-tenant-id"
+
+# DNS Zones (optional)
+zones = ["example.com", "subdomain.example.com"]
+```
+
 ### ACME Account Storage
 
 The tool uses **lego-compatible account storage** in `~/.lego/accounts/`. This means:
@@ -345,6 +440,36 @@ Flags:
 
 # Generate PowerShell template
 ./azure-ssl-certificate-provisioner environment powershell
+```
+
+#### `config` Command
+
+Generates configuration file templates in different formats.
+
+```bash
+./azure-ssl-certificate-provisioner config [format]
+
+Supported formats: json, toml, yaml (default: yaml)
+For environment variables, use: azure-ssl-certificate-provisioner environment
+
+Flags:
+  -h, --help   help for config
+```
+
+**Usage Examples:**
+
+```bash
+# Generate YAML configuration template (default)
+./azure-ssl-certificate-provisioner config
+
+# Generate specific format templates
+./azure-ssl-certificate-provisioner config yaml
+./azure-ssl-certificate-provisioner config json
+./azure-ssl-certificate-provisioner config toml
+
+# Generate configuration and save to file
+./azure-ssl-certificate-provisioner config > config.yaml
+./azure-ssl-certificate-provisioner config json > config.json
 ```
 
 #### `create-sp` Command
