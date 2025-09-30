@@ -1,8 +1,9 @@
-[CmdletBinding()]
+[CmdletBinding(PositionalBinding = $false)]
 param (
-    [switch]$Push = $false,
     [ValidateSet("amd64", "arm64")]
-    [string]$Architecture = "amd64"
+    [string]$Architecture = "amd64",
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$args
 )
 
 function Import-EnvFile {
@@ -77,29 +78,24 @@ if (Get-Command podman -ErrorAction SilentlyContinue) {
     exit 1
 }
 
-Write-Verbose "Building for Linux/$Architecture"
-$env:GOOS = "linux"
-$env:GOARCH = $Architecture
-go build -o ./build/azure-ssl-certificate-provisioner-linux .
-
 $imageName = "${env:REPOSITORY}/${env:IMAGE_NAME}:$Tag"
-Write-Verbose "Building container image: $imageName"
+Write-Verbose "Running container image: $imageName"
 
-& $containerTool build --platform linux/$Architecture -t "$imageName" .
+& $containerTool run `
+  -e AZURE_TENANT_ID `
+  -e AZURE_CLIENT_ID `
+  -e AZURE_CLIENT_SECRET `
+  -e AZURE_SUBSCRIPTION_ID `
+  -e AZURE_RESOURCE_GROUP `
+  -e AZURE_KEY_VAULT_URL `
+  -e LEGO_EMAIL `
+  -v ./config.yaml:/root/config.yaml:ro `
+  -v ./.lego:/root/.lego `
+  --entrypoint "/bin/sh" `
+  --rm -it "$imageName" $args
 if ($?) {
-    Write-Host "Container image built successfully."
+    Write-Host "Container image ran successfully."
 } else {
-    Write-Error "Failed to build the container image."
+    Write-Error "Failed to run the container image."
     exit 1
-}
-
-if ($Push) {
-    Write-Verbose "Pushing container image: $imageName"
-    & $containerTool push "$imageName"
-    if ($?) {
-        Write-Host "Container image pushed successfully."
-    } else {
-        Write-Error "Failed to push the container image."
-        exit 1
-    }
 }
