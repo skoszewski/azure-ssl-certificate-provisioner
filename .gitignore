@@ -10,6 +10,9 @@ prototypes
 **/*_env.ps1
 **/env.ps1
 
+# Ignore configuration files (to prevent committing secrets)
+config.(yaml|yml|json|toml|env)
+
 # Ignore binary files
 azure-ssl-certificate-provisioner
 azure-ssl-certificate-provisioner.exe
