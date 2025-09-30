@@ -6,8 +6,8 @@ FROM alpine:latest
 #RUN rm -rf /var/cache/apk/*
 
 # Copy the binary to the container
-COPY ./build/azure-ssl-certificate-provisioner-linux /
-RUN chmod +x /azure-ssl-certificate-provisioner-linux
+COPY ./build/azure-ssl-certificate-provisioner-linux /certificate-provisioner
+RUN chmod +x /certificate-provisioner
 WORKDIR /root
 
-ENTRYPOINT ["/azure-ssl-certificate-provisioner-linux"]
+ENTRYPOINT ["/certificate-provisioner"]
