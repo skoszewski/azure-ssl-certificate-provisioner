@@ -39,15 +39,18 @@ type envTemplateKeyNames struct {
 //go:embed templates/env/*.tmpl
 var envTemplates embed.FS
 
-func getValueOrPlaceholder(key, placeholder string, force bool) string {
-	value := viper.GetString(key)
-	if value == "" || force { // If force is true, always return placeholder
-		return placeholder
+func getValueOrPlaceholder(key, placeholder string, spInfo *types.ServicePrincipalInfo, force bool) string {
+	if spInfo == nil {
+		value := viper.GetString(key)
+		if value == "" || force { // If force is true, always return placeholder
+			return placeholder
+		}
+		return value
 	}
-	return value
+	return spInfo.GetValue(key)
 }
 
-func generateEnvWithTemplate(shell, msiType string, force bool) {
+func generateEnvWithTemplate(shell, msiType string, spInfo *types.ServicePrincipalInfo, force bool) {
 	envTemplate, err := envTemplates.ReadFile(fmt.Sprintf("templates/env/%s.tmpl", strings.ToLower(shell)))
 	if err != nil {
 		log.Fatalf("Error (internal) reading environment template: %v", err)
@@ -79,14 +82,14 @@ func generateEnvWithTemplate(shell, msiType string, force bool) {
 		AzureAuthMethod:        legoAzure.EnvAuthMethod,
 		MSIType:                msiType,
 		MSITypeStr:             msiTypeStr,
-		EmailValue:             getValueOrPlaceholder(constants.Email, "<your-email@example.com>", force),
-		SubscriptionIDValue:    getValueOrPlaceholder(constants.SubscriptionID, "your-subscription-id", force),
-		ResourceGroupNameValue: getValueOrPlaceholder(constants.ResourceGroupName, "your-resource-group-name", force),
-		KeyVaultURLValue:       getValueOrPlaceholder(constants.KeyVaultURL, "https://your-keyvault.vault.azure.net/", force),
-		AzureClientIDValue:     getValueOrPlaceholder(constants.AzureClientID, "your-client-id", force),
-		AzureClientSecretValue: getValueOrPlaceholder(constants.AzureClientSecret, "your-client-secret", force),
-		AzureTenantIDValue:     getValueOrPlaceholder(constants.AzureTenantID, "your-tenant-id", force),
-		AzureAuthMethodValue:   getValueOrPlaceholder(constants.AzureAuthMethod, "(none|system|user)", force),
+		EmailValue:             getValueOrPlaceholder(constants.Email, "<your-email@example.com>", spInfo, force),
+		SubscriptionIDValue:    getValueOrPlaceholder(constants.SubscriptionID, "your-subscription-id", spInfo, force),
+		ResourceGroupNameValue: getValueOrPlaceholder(constants.ResourceGroupName, "your-resource-group-name", spInfo, force),
+		KeyVaultURLValue:       getValueOrPlaceholder(constants.KeyVaultURL, "https://your-keyvault.vault.azure.net/", spInfo, force),
+		AzureClientIDValue:     getValueOrPlaceholder(constants.AzureClientID, "your-client-id", spInfo, force),
+		AzureClientSecretValue: getValueOrPlaceholder(constants.AzureClientSecret, "your-client-secret", spInfo, force),
+		AzureTenantIDValue:     getValueOrPlaceholder(constants.AzureTenantID, "your-tenant-id", spInfo, force),
+		AzureAuthMethodValue:   getValueOrPlaceholder(constants.AzureAuthMethod, "(none|system|user)", spInfo, force),
 	}
 
 	var output bytes.Buffer

@@ -45,7 +45,7 @@ func envRun(cmd *cobra.Command, args []string) {
 		chosenShell = utilities.GetDefaultShell()
 	}
 
-	generateEnvWithTemplate(chosenShell, msiType, true)
+	generateEnvWithTemplate(chosenShell, msiType, nil, true)
 }
 
 func envSetup(cmd *cobra.Command) {

@@ -18,14 +18,14 @@ const (
 	AzureAuthMsiTimeout = "azure-auth-msi-timeout"
 
 	// Keys related to Service Principal creation and management
-	Name         = "name"
-	ClientID     = "client-id"
-	KeyVaultName = "kv-name"
-	KeyVaultRG   = "kv-resource-group"
-	NoRoles      = "no-roles"
-	UseCertAuth  = "use-cert-auth"
-	KeyFileName  = "key-file-name"
-	CertFileName = "cert-file-name"
+	Name            = "name"
+	ClientID        = "client-id"
+	KeyVaultName    = "kv-name"
+	KeyVaultRG      = "kv-resource-group"
+	NoRoles         = "no-roles"
+	UseCertAuth     = "use-cert-auth"
+	PrivateKeyPath  = "private-key-path"
+	CertificatePath = "certificate-path"
 
 	// Other keywords and Viper keys
 	Staging         = "staging"
