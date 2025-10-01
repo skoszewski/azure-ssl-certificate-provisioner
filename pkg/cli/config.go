@@ -2,26 +2,46 @@ package cli
 
 import (
 	"azure-ssl-certificate-provisioner/internal/utilities"
+	"azure-ssl-certificate-provisioner/pkg/constants"
+	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
 
+var availableConfigFormats = []string{constants.JSON, constants.TOML, constants.YAML}
+
 var configCmd = &cobra.Command{
 	Use:   "config",
 	Short: "Generate configuration file templates",
-	Long: `Generate configuration file templates in different formats.
-Supported formats: json, toml, yaml (default: yaml)
-For environment variables, use: azure-ssl-certificate-provisioner environment`,
-	Args: cobra.MaximumNArgs(1),
-	Run:  configRun,
+	Long: fmt.Sprintf(`Generate configuration file templates in different formats.
+Supported formats: %s (default: %s)
+For environment variables, use: %s`, strings.Join(availableConfigFormats, ", "), constants.YAML, constants.CommandName),
+	Run: configRun,
 }
 
 func configRun(cmd *cobra.Command, args []string) {
-	format, _ := cmd.Flags().GetString("format")
+	format, _ := cmd.Flags().GetString(constants.Format)
 	utilities.LogVerbose("The chosen format is %v", format)
 	GenerateConfigTemplate(format)
 }
 
 func configSetup(cmd *cobra.Command) {
-	cmd.Flags().StringP("format", "f", "yaml", "config file format")
+	cmd.Flags().StringP(constants.Format, "f", constants.YAML, "config file format")
+}
+
+// GenerateConfigTemplate generates configuration templates in different formats
+func GenerateConfigTemplate(format string) {
+	switch format {
+	case constants.JSON:
+		generateJSONConfig()
+	case constants.TOML:
+		generateTOMLConfig()
+	case constants.YAML:
+		generateYAMLConfig()
+	default:
+		fmt.Printf("Error: Unsupported format '%s'. Supported formats: %s\n", format, strings.Join(availableConfigFormats, ", "))
+		fmt.Printf("For environment variables, use: %s environment\n", constants.CommandName)
+		return
+	}
 }

@@ -7,22 +7,23 @@ import (
 	"github.com/spf13/viper"
 
 	"azure-ssl-certificate-provisioner/internal/utilities"
+	"azure-ssl-certificate-provisioner/pkg/constants"
 )
 
 // ValidateRequiredEnvVars validates that all required environment variables are set
 func ValidateRequiredEnvVars() error {
 	// Check Azure Key Vault URL
-	vaultURL := viper.GetString("key-vault-url")
+	vaultURL := viper.GetString(constants.KeyVaultURL)
 	if vaultURL == "" {
 		return fmt.Errorf("AZURE_KEY_VAULT_URL environment variable is required")
 	}
 
 	// Check authentication method
-	authMethod := viper.GetString("azure-auth-method")
+	authMethod := viper.GetString(constants.AzureAuthMethod)
 
 	if authMethod == "msi" {
 		utilities.LogDefault("MSI authentication configured")
-		clientID := viper.GetString("azure-client-id")
+		clientID := viper.GetString(constants.AzureClientId)
 		if clientID != "" {
 			utilities.LogDefault("User-assigned MSI client ID: %s", clientID)
 		} else {
@@ -33,9 +34,9 @@ func ValidateRequiredEnvVars() error {
 
 	// Check Azure authentication variables required by lego DNS provider
 	// These are needed for the Azure DNS provider to authenticate with Azure
-	clientID := viper.GetString("azure-client-id")
-	clientSecret := viper.GetString("azure-client-secret")
-	tenantID := viper.GetString("azure-tenant-id")
+	clientID := viper.GetString(constants.AzureClientId)
+	clientSecret := viper.GetString(constants.AzureClientSecret)
+	tenantID := viper.GetString(constants.AzureTenantId)
 
 	// If no explicit auth method is set, check if we have service principal credentials
 	if authMethod == "" {

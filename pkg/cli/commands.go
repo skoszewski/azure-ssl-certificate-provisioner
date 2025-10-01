@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/viper"
 
 	"azure-ssl-certificate-provisioner/internal/utilities"
+	"azure-ssl-certificate-provisioner/pkg/constants"
 )
 
 func Execute() {
@@ -17,9 +18,6 @@ func Execute() {
 }
 
 func init() {
-	// Initialize viper and configuration
-	cobra.OnInitialize(initConfig)
-
 	// configure root command
 	rootSetup(rootCmd)
 
@@ -48,27 +46,37 @@ func init() {
 	rootCmd.AddCommand(deleteSPCmd)
 
 	// Bind Viper keys to environment variables
-	viper.BindEnv("subscription", "AZURE_SUBSCRIPTION_ID")
-	viper.BindEnv("resource-group", "AZURE_RESOURCE_GROUP")
-	viper.BindEnv("key-vault-url", "AZURE_KEY_VAULT_URL")
-	viper.BindEnv("email", "LEGO_EMAIL")
+	viper.BindEnv(constants.SubscriptionID, "AZURE_SUBSCRIPTION_ID")
+	viper.BindEnv(constants.ResourceGroupName, "AZURE_RESOURCE_GROUP")
+	viper.BindEnv(constants.KeyVaultURL, "AZURE_KEY_VAULT_URL")
+	viper.BindEnv(constants.Email, "LEGO_EMAIL")
 
 	// Azure authentication environment variables for lego DNS provider
-	viper.BindEnv("azure-client-id", "AZURE_CLIENT_ID")
-	viper.BindEnv("azure-client-secret", "AZURE_CLIENT_SECRET")
-	viper.BindEnv("azure-tenant-id", "AZURE_TENANT_ID")
-	viper.BindEnv("azure-auth-method", "AZURE_AUTH_METHOD")
-	viper.BindEnv("azure-auth-msi-timeout", "AZURE_AUTH_MSI_TIMEOUT")
+	viper.BindEnv(constants.AzureClientId, "AZURE_CLIENT_ID")
+	viper.BindEnv(constants.AzureClientSecret, "AZURE_CLIENT_SECRET")
+	viper.BindEnv(constants.AzureTenantId, "AZURE_TENANT_ID")
+	viper.BindEnv(constants.AzureAuthMethod, "AZURE_AUTH_METHOD")
+	viper.BindEnv(constants.AzureAuthMsiTimeout, "AZURE_AUTH_MSI_TIMEOUT")
 
 	// Set defaults
-	viper.SetDefault("staging", true)
-	viper.SetDefault("azure-auth-method", "")
-	viper.SetDefault("azure-auth-msi-timeout", "2s")
+	viper.SetDefault(constants.Staging, true)
+	viper.SetDefault(constants.AzureAuthMethod, "")
+	viper.SetDefault(constants.AzureAuthMsiTimeout, "2s")
+	viper.SetDefault(constants.ExpireThreshold, 7)
+
+	// Initialize viper and configuration file
+	cobra.OnInitialize(initConfig)
 }
 
 func initConfig() {
 	viper.AddConfigPath(".")
 	viper.SetConfigName("config")
+
+	if configFile != "" {
+		viper.SetConfigFile(configFile)
+		utilities.LogVerbose("Config file set to: %s", configFile)
+	}
+
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err == nil {

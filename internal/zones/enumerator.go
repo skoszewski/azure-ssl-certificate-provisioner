@@ -6,12 +6,14 @@ import (
 	"strings"
 
 	"azure-ssl-certificate-provisioner/pkg/azure"
+	"azure-ssl-certificate-provisioner/pkg/constants"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dns/armdns"
+	"github.com/spf13/viper"
 )
 
 // ProcessorFunc defines the function signature for processing FQDNs
-type ProcessorFunc func(ctx context.Context, fqdn string, expireThreshold int)
+type ProcessorFunc func(ctx context.Context, fqdn string)
 
 // Enumerator handles DNS zone and record enumeration
 type Enumerator struct {
@@ -26,9 +28,13 @@ func NewEnumerator(azureClients *azure.Clients) *Enumerator {
 }
 
 // EnumerateAndProcess enumerates DNS zones and records, calling the processor function for each valid FQDN
-func (e *Enumerator) EnumerateAndProcess(ctx context.Context, zones []string, resourceGroupName string, expireThreshold int, processor ProcessorFunc) error {
+func (e *Enumerator) EnumerateAndProcess(ctx context.Context, processor ProcessorFunc) error {
+
+	zones := viper.GetStringSlice(constants.Zones)
+	resourceGroupName := viper.GetString(constants.ResourceGroupName)
+
 	// Determine which zones to process
-	zonesToProcess, err := e.determineZonesToProcess(ctx, zones, resourceGroupName)
+	zonesToProcess, err := e.determineZonesToProcess(ctx, zones)
 	if err != nil {
 		return err
 	}
@@ -40,7 +46,7 @@ func (e *Enumerator) EnumerateAndProcess(ctx context.Context, zones []string, re
 
 	// Process zones
 	for _, zone := range zonesToProcess {
-		if err := e.processZone(ctx, zone, resourceGroupName, expireThreshold, processor); err != nil {
+		if err := e.processZone(ctx, zone, processor); err != nil {
 			log.Printf("Zone processing failed: zone=%s, error=%v", zone, err)
 			continue
 		}
@@ -50,8 +56,9 @@ func (e *Enumerator) EnumerateAndProcess(ctx context.Context, zones []string, re
 }
 
 // determineZonesToProcess determines which zones to process based on input
-func (e *Enumerator) determineZonesToProcess(ctx context.Context, zones []string, resourceGroupName string) ([]string, error) {
+func (e *Enumerator) determineZonesToProcess(ctx context.Context, zones []string) ([]string, error) {
 	var zonesToProcess []string
+	resourceGroupName := viper.GetString(constants.ResourceGroupName)
 
 	if len(zones) == 0 {
 		// If no zones specified, get all zones from the resource group
@@ -82,8 +89,9 @@ func (e *Enumerator) determineZonesToProcess(ctx context.Context, zones []string
 }
 
 // processZone processes a single DNS zone
-func (e *Enumerator) processZone(ctx context.Context, zone string, resourceGroupName string, expireThreshold int, processor ProcessorFunc) error {
+func (e *Enumerator) processZone(ctx context.Context, zone string, processor ProcessorFunc) error {
 	log.Printf("Processing DNS zone: %s", zone)
+	resourceGroupName := viper.GetString(constants.ResourceGroupName)
 	pager := e.azureClients.DNS.NewListAllByDNSZonePager(resourceGroupName, zone, nil)
 
 	for pager.More() {
@@ -107,7 +115,7 @@ func (e *Enumerator) processZone(ctx context.Context, zone string, resourceGroup
 			rsType := strings.TrimPrefix(*rs.Type, "Microsoft.Network/dnszones/")
 
 			log.Printf("Found record %s (%s).", fqdn, rsType)
-			processor(ctx, fqdn, expireThreshold)
+			processor(ctx, fqdn)
 		}
 	}
 

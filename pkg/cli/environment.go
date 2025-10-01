@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"azure-ssl-certificate-provisioner/internal/utilities"
+	"azure-ssl-certificate-provisioner/pkg/constants"
 )
 
 var envCmd = &cobra.Command{
@@ -18,17 +19,17 @@ var envCmd = &cobra.Command{
 	Run:     envRun,
 }
 
-var envShellTypes = []string{"bash", "powershell"}
+var envShellTypes = []string{constants.Bash, constants.PowerShell}
 
 // Validate shell value
 func envPreRunE(cmd *cobra.Command, args []string) error {
-	shell, err := cmd.Flags().GetString("shell")
+	shell, err := cmd.Flags().GetString(constants.Shell)
 	if err != nil {
 		return err
 	}
 
 	if !slices.Contains(append(envShellTypes, ""), strings.ToLower(shell)) {
-		return fmt.Errorf("invalid shell type: %s (allowed: bash, powershell)", shell)
+		return fmt.Errorf("invalid shell type: %s (allowed: %s)", shell, strings.Join(envShellTypes, ", "))
 	}
 
 	return nil
@@ -36,8 +37,8 @@ func envPreRunE(cmd *cobra.Command, args []string) error {
 
 func envRun(cmd *cobra.Command, args []string) {
 	// Get flag values
-	msiType, _ := cmd.Flags().GetString("use-msi") // TODO: Move validation logic to PreRunE
-	chosenShell, _ := cmd.Flags().GetString("shell")
+	msiType, _ := cmd.Flags().GetString(constants.UseMSI)
+	chosenShell, _ := cmd.Flags().GetString(constants.Shell)
 
 	// Use OS-appropriate shell if no subcommand is specified
 	if chosenShell == "" {
@@ -48,9 +49,9 @@ func envRun(cmd *cobra.Command, args []string) {
 }
 
 func envSetup(cmd *cobra.Command) {
-	cmd.Flags().StringP("use-msi", "m", "", "Generate templated for MI authentication (system|user)")
-	cmd.Flags().StringP("shell", "s", "", "Chosen shell type")
-	cmd.RegisterFlagCompletionFunc("shell", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	cmd.Flags().StringP(constants.UseMSI, "m", "", "Generate templated for MI authentication (system|user)")
+	cmd.Flags().StringP(constants.Shell, "s", "", "Chosen shell type")
+	cmd.RegisterFlagCompletionFunc(constants.Shell, func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return envShellTypes, cobra.ShellCompDirectiveNoFileComp
 	})
 }

@@ -13,30 +13,43 @@ import (
 	"azure-ssl-certificate-provisioner/internal/utilities"
 	"azure-ssl-certificate-provisioner/internal/zones"
 	"azure-ssl-certificate-provisioner/pkg/azure"
+	"azure-ssl-certificate-provisioner/pkg/constants"
 )
 
 var listCmd = &cobra.Command{
-	Use:    "list",
-	Short:  "List DNS records and certificate status",
-	Long:   `Scan Azure DNS zones and list records that would be processed, along with their certificate status from Key Vault.`,
-	Run:    listCmdRun,
-	PreRun: listCmdPreRun,
+	Use:     "list",
+	Short:   "List DNS records and certificate status",
+	Long:    `Scan Azure DNS zones and list records that would be processed, along with their certificate status from Key Vault.`,
+	Run:     listCmdRun,
+	PreRunE: listCmdPreRunE,
 }
 
 func listCmdSetup(cmd *cobra.Command) {
-	cmd.Flags().StringSliceP("zones", "z", nil, "DNS zone(s) to search for records (can be used multiple times). If omitted, all zones in the resource group will be scanned")
-	cmd.Flags().StringP("subscription", "s", "", "Azure subscription ID")
-	cmd.Flags().StringP("resource-group", "g", "", "Azure resource group name")
-	cmd.Flags().StringP("key-vault-url", "k", "", "Key Vault URL where certificates are stored")
+	cmd.Flags().StringSliceP(constants.Zones, "z", nil, "DNS zone(s) to search for records (can be used multiple times). If omitted, all zones in the resource group will be scanned")
+	cmd.Flags().StringP(constants.SubscriptionID, "s", "", "Azure subscription ID")
+	cmd.Flags().StringP(constants.ResourceGroupName, "g", "", "Azure resource group name")
+	cmd.Flags().StringP(constants.KeyVaultURL, "k", "", "Key Vault URL where certificates are stored")
 
-	viper.BindPFlag("zones", cmd.Flags().Lookup("zones"))
-	viper.BindPFlag("subscription", cmd.Flags().Lookup("subscription"))
-	viper.BindPFlag("resource-group", cmd.Flags().Lookup("resource-group"))
-	viper.BindPFlag("key-vault-url", cmd.Flags().Lookup("key-vault-url"))
+	viper.BindPFlag(constants.Zones, cmd.Flags().Lookup(constants.Zones))
+	viper.BindPFlag(constants.SubscriptionID, cmd.Flags().Lookup(constants.SubscriptionID))
+	viper.BindPFlag(constants.ResourceGroupName, cmd.Flags().Lookup(constants.ResourceGroupName))
+	viper.BindPFlag(constants.KeyVaultURL, cmd.Flags().Lookup(constants.KeyVaultURL))
 }
 
-func listCmdPreRun(cmd *cobra.Command, args []string) {
+func listCmdPreRunE(cmd *cobra.Command, args []string) error {
+	if viper.GetString(constants.SubscriptionID) == "" {
+		log.Fatal("Subscription ID not specified")
+	}
 
+	if viper.GetString(constants.ResourceGroupName) == "" {
+		log.Fatal("Resource group name not specified")
+	}
+
+	if viper.GetString(constants.KeyVaultURL) == "" {
+		log.Fatalf("Azure Key Vault URL not specified")
+	}
+
+	return nil
 }
 
 // listCmdRun lists DNS records and their certificate status
@@ -44,23 +57,9 @@ func listCmdRun(cmd *cobra.Command, args []string) {
 	ctx := context.Background()
 
 	// Get configuration values (using same keys as run command)
-	zonesList := viper.GetStringSlice("zones")
-	subscriptionId := viper.GetString("subscription")
-	resourceGroupName := viper.GetString("resource-group")
-	vaultURL := viper.GetString("key-vault-url")
-
-	// Validate required parameters
-	if subscriptionId == "" {
-		log.Fatalf("Subscription ID not specified.")
-	}
-
-	if resourceGroupName == "" {
-		log.Fatalf("Resource Group Name not specified.")
-	}
-
-	if vaultURL == "" {
-		log.Fatalf("Azure Key Vault URL not specified.")
-	}
+	subscriptionId := viper.GetString(constants.SubscriptionID)
+	resourceGroupName := viper.GetString(constants.ResourceGroupName)
+	vaultURL := viper.GetString(constants.KeyVaultURL)
 
 	// Create Azure clients (no need for lego/ACME setup for listing)
 	azureClients, err := azure.NewClients(subscriptionId, vaultURL)
@@ -77,7 +76,7 @@ func listCmdRun(cmd *cobra.Command, args []string) {
 		kvClient: azureClients.KVCert,
 	}
 
-	if err := enumerator.EnumerateAndProcess(ctx, zonesList, resourceGroupName, 0, listProcessor.ProcessFQDN); err != nil {
+	if err := enumerator.EnumerateAndProcess(ctx, listProcessor.ProcessFQDN); err != nil {
 		log.Fatalf("Failed to enumerate and process zones: %v", err)
 	}
 
@@ -95,7 +94,7 @@ type CertificateListProcessor struct {
 }
 
 // ProcessFQDN processes a single FQDN for listing (matches zones.ProcessorFunc signature)
-func (p *CertificateListProcessor) ProcessFQDN(ctx context.Context, fqdn string, _ int) {
+func (p *CertificateListProcessor) ProcessFQDN(ctx context.Context, fqdn string) {
 	p.totalRecords++
 
 	certName := "cert-" + strings.ReplaceAll(fqdn, ".", "-")

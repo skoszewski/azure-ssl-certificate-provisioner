@@ -8,6 +8,7 @@ import (
 
 	"azure-ssl-certificate-provisioner/internal/utilities"
 	"azure-ssl-certificate-provisioner/pkg/azure"
+	"azure-ssl-certificate-provisioner/pkg/constants"
 )
 
 var deleteSPCmd = &cobra.Command{
@@ -26,18 +27,18 @@ This command will:
 func deleteSPCmdSetup(cmd *cobra.Command) {
 	// Add flags
 	cmd.Flags().StringP("client-id", "c", "", "Client ID (App ID) of the Azure AD application to delete (required)")
-	cmd.Flags().String("tenant-id", "", "Azure AD tenant ID (optional, will use default if not specified)")
-	cmd.Flags().StringP("subscription-id", "s", "", "Azure subscription ID (required for role assignment cleanup)")
+	cmd.Flags().String(constants.TenantID, "", "Azure AD tenant ID (optional, will use default if not specified)")
+	cmd.Flags().StringP(constants.SubscriptionID, "s", "", "Azure subscription ID (required for role assignment cleanup)")
 
 	viper.BindPFlag("delete-sp-client-id", deleteSPCmd.Flags().Lookup("client-id"))
-	viper.BindPFlag("azure-tenant-id", deleteSPCmd.Flags().Lookup("tenant-id"))
-	viper.BindPFlag("subscription", deleteSPCmd.Flags().Lookup("subscription-id"))
+	viper.BindPFlag(constants.AzureTenantId, deleteSPCmd.Flags().Lookup(constants.TenantID))
+	viper.BindPFlag("subscription", deleteSPCmd.Flags().Lookup(constants.SubscriptionID))
 }
 
 // deleteSPCmdRunE executes the delete-sp command
 func deleteSPCmdRunE(cmd *cobra.Command, args []string) error {
 	clientID := viper.GetString("delete-sp-client-id")
-	tenantID := viper.GetString("azure-tenant-id")
+	tenantID := viper.GetString(constants.AzureTenantId)
 	subscriptionID := viper.GetString("subscription")
 
 	if clientID == "" {
@@ -45,7 +46,7 @@ func deleteSPCmdRunE(cmd *cobra.Command, args []string) error {
 	}
 
 	if subscriptionID == "" {
-		return fmt.Errorf("subscription-id is required for role assignment cleanup")
+		return fmt.Errorf("%s is required for role assignment cleanup", constants.SubscriptionID)
 	}
 
 	utilities.LogDefault("Service principal deletion started: %s", clientID)

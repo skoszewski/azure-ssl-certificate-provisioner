@@ -5,9 +5,12 @@ import "log"
 // Verbose holds the global verbose flag
 var Verbose bool = false
 
-// SetVerbose sets the global verbose flag
-func SetVerbose(verbose bool) {
-	Verbose = verbose
+func GetVerbosePtr() *bool {
+	return &Verbose
+}
+
+func SetVerbose(v bool) {
+	Verbose = v
 }
 
 // LogDefault logs a message always (replaces current log.Printf calls)

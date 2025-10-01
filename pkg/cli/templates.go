@@ -6,6 +6,7 @@ import (
 
 	"azure-ssl-certificate-provisioner/internal/types"
 	"azure-ssl-certificate-provisioner/internal/utilities"
+	"azure-ssl-certificate-provisioner/pkg/constants"
 )
 
 // GenerateEnvironmentTemplate generates environment variable templates
@@ -13,20 +14,20 @@ func GenerateEnvironmentTemplate(shell string, msiType string) {
 	isUserMSI := msiType == "user"
 
 	switch strings.ToLower(shell) {
-	case "powershell", "ps1":
+	case constants.PowerShell, "ps1":
 		if msiType == "system" || msiType == "user" {
 			generateMSIPowerShellTemplate(isUserMSI)
 		} else {
 			generatePowerShellTemplate()
 		}
-	case "bash", "sh":
+	case constants.Bash, "sh":
 		if msiType == "system" || msiType == "user" {
 			generateMSIBashTemplate(isUserMSI)
 		} else {
 			generateBashTemplate()
 		}
 	default:
-		utilities.LogDefault("Unsupported shell type: shell=%s, supported=bash,powershell", shell)
+		utilities.LogDefault("Unsupported shell type: shell=%s, supported=%s,%s", shell, constants.Bash, constants.PowerShell)
 		if msiType == "system" || msiType == "user" {
 			generateMSIBashTemplate(isUserMSI)
 		} else {
@@ -68,12 +69,12 @@ $env:AZURE_TENANT_ID = "your-azure-tenant-id"
 // GenerateServicePrincipalTemplate generates environment variable templates with actual SP values
 func GenerateServicePrincipalTemplate(spInfo *types.ServicePrincipalInfo, shell, keyVaultName, keyVaultResourceGroup string) {
 	switch strings.ToLower(shell) {
-	case "powershell", "ps1":
+	case constants.PowerShell, "ps1":
 		generateServicePrincipalPowerShellTemplate(spInfo, keyVaultName, keyVaultResourceGroup)
-	case "bash", "sh":
+	case constants.Bash, "sh":
 		generateServicePrincipalBashTemplate(spInfo, keyVaultName, keyVaultResourceGroup)
 	default:
-		utilities.LogDefault("Unsupported shell type: shell=%s, using=bash", shell)
+		utilities.LogDefault("Unsupported shell type: shell=%s, using=%s", shell, constants.Bash)
 		generateServicePrincipalBashTemplate(spInfo, keyVaultName, keyVaultResourceGroup)
 	}
 }
@@ -156,22 +157,6 @@ $env:AZURE_AUTH_METHOD = "msi"
 `)
 	if isUserMSI {
 		fmt.Print("$env:AZURE_CLIENT_ID = \"your-user-assigned-msi-client-id\"")
-	}
-}
-
-// GenerateConfigTemplate generates configuration templates in different formats
-func GenerateConfigTemplate(format string) {
-	switch format {
-	case "json":
-		generateJSONConfig()
-	case "toml":
-		generateTOMLConfig()
-	case "yaml", "yml":
-		generateYAMLConfig()
-	default:
-		fmt.Printf("Error: Unsupported format '%s'. Supported formats: json, toml, yaml\n", format)
-		fmt.Printf("For environment variables, use: azure-ssl-certificate-provisioner environment\n")
-		return
 	}
 }
 

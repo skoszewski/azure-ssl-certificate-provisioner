@@ -16,6 +16,7 @@ import (
 	"azure-ssl-certificate-provisioner/pkg/azure"
 	"azure-ssl-certificate-provisioner/pkg/certificate"
 	"azure-ssl-certificate-provisioner/pkg/config"
+	"azure-ssl-certificate-provisioner/pkg/constants"
 )
 
 var runCmd = &cobra.Command{
@@ -27,19 +28,19 @@ var runCmd = &cobra.Command{
 
 func runCmdSetup(cmd *cobra.Command) {
 	// Configure flags for run command
-	cmd.Flags().StringSliceP("zones", "z", nil, "DNS zone(s) to search for records (can be used multiple times). If omitted, all zones in the resource group will be scanned")
-	cmd.Flags().StringP("subscription", "s", "", "Azure subscription ID")
-	cmd.Flags().StringP("resource-group", "g", "", "Azure resource group name")
-	cmd.Flags().Bool("staging", true, "Use Let's Encrypt staging environment")
-	cmd.Flags().IntP("expire-threshold", "t", 7, "Certificate expiration threshold in days")
-	cmd.Flags().StringP("email", "e", "", "Email address for ACME account registration (required)")
+	cmd.Flags().StringSliceP(constants.Zones, "z", nil, "DNS zone(s) to search for records (can be used multiple times). If omitted, all zones in the resource group will be scanned")
+	cmd.Flags().StringP(constants.SubscriptionID, "s", "", "Azure subscription ID")
+	cmd.Flags().StringP(constants.ResourceGroupName, "g", "", "Azure resource group name")
+	cmd.Flags().Bool(constants.Staging, true, "Use Let's Encrypt staging environment")
+	cmd.Flags().IntP(constants.ExpireThreshold, "t", 7, "Certificate expiration threshold in days")
+	cmd.Flags().StringP(constants.Email, "e", "", "Email address for ACME account registration (required)")
 
-	viper.BindPFlag("zones", runCmd.Flags().Lookup("zones"))
-	viper.BindPFlag("subscription", runCmd.Flags().Lookup("subscription"))
-	viper.BindPFlag("resource-group", runCmd.Flags().Lookup("resource-group"))
-	viper.BindPFlag("staging", runCmd.Flags().Lookup("staging"))
-	viper.BindPFlag("expire-threshold", runCmd.Flags().Lookup("expire-threshold"))
-	viper.BindPFlag("email", runCmd.Flags().Lookup("email"))
+	viper.BindPFlag(constants.Zones, runCmd.Flags().Lookup(constants.Zones))
+	viper.BindPFlag(constants.SubscriptionID, runCmd.Flags().Lookup(constants.SubscriptionID))
+	viper.BindPFlag(constants.ResourceGroupName, runCmd.Flags().Lookup(constants.ResourceGroupName))
+	viper.BindPFlag(constants.Staging, runCmd.Flags().Lookup(constants.Staging))
+	viper.BindPFlag(constants.ExpireThreshold, runCmd.Flags().Lookup(constants.ExpireThreshold))
+	viper.BindPFlag(constants.Email, runCmd.Flags().Lookup(constants.Email))
 }
 
 // runCmdRun executes the main certificate provisioning logic
@@ -47,12 +48,10 @@ func runCmdRun(cmd *cobra.Command, args []string) {
 	ctx := context.Background()
 
 	// Get configuration values
-	zonesList := viper.GetStringSlice("zones")
-	subscriptionId := viper.GetString("subscription")
-	resourceGroupName := viper.GetString("resource-group")
-	staging := viper.GetBool("staging")
-	expireThreshold := viper.GetInt("expire-threshold")
-	email := viper.GetString("email")
+	subscriptionId := viper.GetString(constants.SubscriptionID)
+	resourceGroupName := viper.GetString(constants.ResourceGroupName)
+	staging := viper.GetBool(constants.Staging)
+	email := viper.GetString(constants.Email)
 
 	if subscriptionId == "" {
 		log.Fatalf("Subscription ID not specified.")
@@ -72,7 +71,7 @@ func runCmdRun(cmd *cobra.Command, args []string) {
 		log.Fatalf("Environment validation failed: %v", err)
 	}
 
-	vaultURL := viper.GetString("key-vault-url")
+	vaultURL := viper.GetString(constants.KeyVaultURL)
 
 	// Create Azure clients
 	azureClients, err := azure.NewClients(subscriptionId, vaultURL)
@@ -145,7 +144,7 @@ func runCmdRun(cmd *cobra.Command, args []string) {
 
 	// Create zones enumerator and process zones
 	enumerator := zones.NewEnumerator(azureClients)
-	if err := enumerator.EnumerateAndProcess(ctx, zonesList, resourceGroupName, expireThreshold, certHandler.ProcessFQDN); err != nil {
+	if err := enumerator.EnumerateAndProcess(ctx, certHandler.ProcessFQDN); err != nil {
 		log.Fatalf("Failed to enumerate and process zones: %v", err)
 	}
 }
@@ -161,14 +160,14 @@ func setAzureDNSEnvironment(subscriptionID, resourceGroup string) error {
 	}
 
 	// Set auth method if specified via viper
-	authMethod := viper.GetString("azure-auth-method")
+	authMethod := viper.GetString(constants.AzureAuthMethod)
 	if authMethod != "" {
 		os.Setenv("AZURE_AUTH_METHOD", authMethod)
 		utilities.LogDefault("Azure DNS authentication method: %s", authMethod)
 	}
 
 	// Set MSI timeout if specified
-	msiTimeout := viper.GetString("azure-auth-msi-timeout")
+	msiTimeout := viper.GetString(constants.AzureAuthMsiTimeout)
 	if msiTimeout != "" {
 		os.Setenv("AZURE_AUTH_MSI_TIMEOUT", msiTimeout)
 	}

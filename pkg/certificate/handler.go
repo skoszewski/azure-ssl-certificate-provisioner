@@ -1,6 +1,7 @@
 package certificate
 
 import (
+	"azure-ssl-certificate-provisioner/pkg/constants"
 	"context"
 	"crypto/x509"
 	"encoding/base64"
@@ -13,6 +14,7 @@ import (
 	"github.com/go-acme/lego/v4/certcrypto"
 	"github.com/go-acme/lego/v4/certificate"
 	"github.com/go-acme/lego/v4/lego"
+	"github.com/spf13/viper"
 	"software.sslmate.com/src/go-pkcs12"
 )
 
@@ -31,7 +33,7 @@ func NewHandler(acmeClient *lego.Client, kvCertClient *azcertificates.Client) *H
 }
 
 // ProcessFQDN handles certificate provisioning for a given FQDN
-func (h *Handler) ProcessFQDN(ctx context.Context, fqdn string, expireThreshold int) {
+func (h *Handler) ProcessFQDN(ctx context.Context, fqdn string) {
 	certName := "cert-" + strings.ReplaceAll(fqdn, ".", "-")
 	log.Printf("Certificate check started: %s", fqdn)
 
@@ -44,6 +46,8 @@ func (h *Handler) ProcessFQDN(ctx context.Context, fqdn string, expireThreshold 
 	} else {
 		log.Printf("Certificate not found: fqdn=%s", fqdn)
 	}
+
+	expireThreshold := viper.GetInt(constants.ExpireThreshold)
 
 	if daysLeft > expireThreshold {
 		log.Printf("Certificate renewal skipped: fqdn=%s, days_left=%d, threshold=%d", fqdn, daysLeft, expireThreshold)

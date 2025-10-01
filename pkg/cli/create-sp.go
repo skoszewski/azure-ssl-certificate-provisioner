@@ -8,6 +8,7 @@ import (
 
 	"azure-ssl-certificate-provisioner/internal/utilities"
 	"azure-ssl-certificate-provisioner/pkg/azure"
+	"azure-ssl-certificate-provisioner/pkg/constants"
 )
 
 var createSPCmd = &cobra.Command{
@@ -20,37 +21,37 @@ var createSPCmd = &cobra.Command{
 func createSPCmdSetup(cmd *cobra.Command) {
 
 	cmd.Flags().StringP("name", "n", "", "Display name for the Azure AD application (required)")
-	cmd.Flags().StringP("tenant-id", "t", "", "Azure tenant ID (required)")
-	cmd.Flags().StringP("subscription-id", "s", "", "Azure subscription ID (required)")
-	cmd.Flags().StringP("resource-group", "g", "", "Resource group name for DNS Zone Contributor role assignment")
+	cmd.Flags().StringP(constants.TenantID, "t", "", "Azure tenant ID (required)")
+	cmd.Flags().StringP(constants.SubscriptionID, "s", "", "Azure subscription ID (required)")
+	cmd.Flags().StringP(constants.ResourceGroupName, "g", "", "Resource group name for DNS Zone Contributor role assignment")
 	cmd.Flags().StringP("kv-name", "", "", "Key Vault name for Certificates Officer role assignment")
 	cmd.Flags().StringP("kv-resource-group", "", "", "Resource group name for the Key Vault")
 	cmd.Flags().Bool("no-roles", false, "Disable all role assignments even if other role flags are specified")
 	cmd.Flags().Bool("use-cert-auth", false, "Use certificate-based authentication (expects {client-id}.key and {client-id}.crt files)")
-	cmd.Flags().StringP("shell", "", utilities.GetDefaultShell(), "Shell type for output template (bash, powershell)")
+	cmd.Flags().StringP(constants.Shell, "", utilities.GetDefaultShell(), "Shell type for output template (bash, powershell)")
 
 	viper.BindPFlag("sp-name", createSPCmd.Flags().Lookup("name"))
-	viper.BindPFlag("azure-tenant-id", createSPCmd.Flags().Lookup("tenant-id"))
-	viper.BindPFlag("subscription", createSPCmd.Flags().Lookup("subscription-id"))
-	viper.BindPFlag("resource-group", createSPCmd.Flags().Lookup("resource-group"))
+	viper.BindPFlag(constants.AzureTenantId, createSPCmd.Flags().Lookup(constants.TenantID))
+	viper.BindPFlag("subscription", createSPCmd.Flags().Lookup(constants.SubscriptionID))
+	viper.BindPFlag(constants.ResourceGroupName, createSPCmd.Flags().Lookup(constants.ResourceGroupName))
 	viper.BindPFlag("kv-name", createSPCmd.Flags().Lookup("kv-name"))
 	viper.BindPFlag("kv-resource-group", createSPCmd.Flags().Lookup("kv-resource-group"))
 	viper.BindPFlag("sp-no-roles", createSPCmd.Flags().Lookup("no-roles"))
 	viper.BindPFlag("sp-use-cert-auth", createSPCmd.Flags().Lookup("use-cert-auth"))
-	viper.BindPFlag("shell", createSPCmd.Flags().Lookup("shell"))
+	viper.BindPFlag(constants.Shell, createSPCmd.Flags().Lookup(constants.Shell))
 }
 
 // createSPCmdRun executes the service principal creation logic
 func createSPCmdRun(cmd *cobra.Command, args []string) {
 	displayName := viper.GetString("sp-name")
-	tenantID := viper.GetString("azure-tenant-id")
+	tenantID := viper.GetString(constants.AzureTenantId)
 	subscriptionID := viper.GetString("subscription")
-	resourceGroup := viper.GetString("resource-group")
+	resourceGroup := viper.GetString(constants.ResourceGroupName)
 	keyVaultName := viper.GetString("kv-name")
 	keyVaultResourceGroup := viper.GetString("kv-resource-group")
 	noRoles := viper.GetBool("sp-no-roles")
 	useCertAuth := viper.GetBool("sp-use-cert-auth")
-	shell := viper.GetString("shell")
+	shell := viper.GetString(constants.Shell)
 
 	// Automatically assign DNS role if resource group is provided (unless --no-roles is specified)
 	assignRole := resourceGroup != "" && !noRoles
