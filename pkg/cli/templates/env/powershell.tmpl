@@ -1,0 +1,12 @@
+# ACME account email for Let's Encrypt registration
+$env:{{ .Email }} = "{{ .EmailValue }}"
+# Azure subscription and resource group
+$env:{{ .SubscriptionID }} = "{{ .SubscriptionIDValue }}"
+$env:{{ .ResourceGroupName }} = "{{ .ResourceGroupNameValue }}"
+# Azure Key Vault for certificate storage
+$env:{{ .KeyVaultURL }} = "{{ .KeyVaultURLValue }}"
+# Azure authentication ({{ .MSITypeStr }})
+$env:{{ .AzureTenantID }} = "{{ .AzureTenantIDValue }}"{{ if .MSIType }}
+$env:{{ .AzureAuthMethod }} = "msi"{{ end }}{{ if ne .MSIType "system" }}
+$env:{{ .AzureClientID }} = "{{ .AzureClientIDValue }}"{{ end }}{{ if eq .MSIType "" }}
+$env:{{ .AzureClientSecret }} = "{{ .AzureClientSecretValue }}"{{ end }}

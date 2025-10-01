@@ -48,6 +48,7 @@ const (
 	EnvAzureClientSecret   = "AZURE_CLIENT_SECRET"
 	EnvAzureTenantId       = "AZURE_TENANT_ID"
 	EnvAzureSubscriptionId = "AZURE_SUBSCRIPTION_ID"
+	EnvResourceGroup       = "AZURE_RESOURCE_GROUP"
 	EnvAzureKeyVaultURL    = "AZURE_KEY_VAULT_URL"
 	EnvLegoEmail           = "LEGO_EMAIL"
 	EnvConfigFile          = "CONFIG_FILE"

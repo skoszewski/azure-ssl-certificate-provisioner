@@ -1,0 +1,12 @@
+# ACME account email for Let's Encrypt registration
+export {{ .Email }}="{{ .EmailValue }}"
+# Azure subscription and resource group
+export {{ .SubscriptionID }}="{{ .SubscriptionIDValue }}"
+export {{ .ResourceGroupName }}="{{ .ResourceGroupNameValue }}"
+# Azure Key Vault for certificate storage
+export {{ .KeyVaultURL }}="{{ .KeyVaultURLValue }}"
+# Azure authentication ({{ .MSITypeStr }})
+export {{ .AzureTenantID }}="{{ .AzureTenantIDValue }}"{{ if .MSIType }}
+export {{ .AzureAuthMethod }}=msi{{ end }}{{ if ne .MSIType "system" }}
+export {{ .AzureClientID }}="{{ .AzureClientIDValue }}"{{ end }}{{ if eq .MSIType "" }}
+export {{ .AzureClientSecret }}="{{ .AzureClientSecretValue }}"{{ end }}

@@ -1,6 +1,9 @@
 package cli
 
 import (
+	"azure-ssl-certificate-provisioner/internal/types"
+	"azure-ssl-certificate-provisioner/internal/utilities"
+	"azure-ssl-certificate-provisioner/pkg/constants"
 	"bytes"
 	"embed"
 	"fmt"
@@ -8,66 +11,90 @@ import (
 	"strings"
 	"text/template"
 
-	"azure-ssl-certificate-provisioner/internal/types"
-	"azure-ssl-certificate-provisioner/internal/utilities"
-	"azure-ssl-certificate-provisioner/pkg/constants"
+	legoAzure "github.com/go-acme/lego/v4/providers/dns/azuredns"
+	"github.com/spf13/viper"
 )
 
-// GenerateEnvironmentTemplate generates environment variable templates
-func GenerateEnvironmentTemplate(shell string, msiType string) {
-	isUserMSI := msiType == constants.MSIUser
+type envTemplateKeyNames struct {
+	Email                  string
+	SubscriptionID         string
+	ResourceGroupName      string
+	KeyVaultURL            string
+	AzureClientID          string
+	AzureClientSecret      string
+	AzureTenantID          string
+	AzureAuthMethod        string
+	MSIType                string
+	MSITypeStr             string
+	EmailValue             string
+	SubscriptionIDValue    string
+	ResourceGroupNameValue string
+	KeyVaultURLValue       string
+	AzureClientIDValue     string
+	AzureClientSecretValue string
+	AzureTenantIDValue     string
+	AzureAuthMethodValue   string
+}
 
-	switch strings.ToLower(shell) {
-	case constants.PowerShell, "ps1":
-		if msiType == constants.MSISystem || msiType == constants.MSIUser {
-			generateMSIPowerShellTemplate(isUserMSI)
-		} else {
-			generatePowerShellTemplate()
-		}
-	case constants.Bash, "sh":
-		if msiType == constants.MSISystem || msiType == constants.MSIUser {
-			generateMSIBashTemplate(isUserMSI)
-		} else {
-			generateBashTemplate()
-		}
-	default:
-		utilities.LogDefault("Unsupported shell type: shell=%s, supported=%s,%s", shell, constants.Bash, constants.PowerShell)
-		if msiType == constants.MSISystem || msiType == constants.MSIUser {
-			generateMSIBashTemplate(isUserMSI)
-		} else {
-			generateBashTemplate()
-		}
+//go:embed templates/env/*.tmpl
+var envTemplates embed.FS
+
+func getValueOrPlaceholder(key, placeholder string, force bool) string {
+	value := viper.GetString(key)
+	if value == "" || force { // If force is true, always return placeholder
+		return placeholder
 	}
+	return value
 }
 
-func generateBashTemplate() {
-	fmt.Print(`# ACME account email for Let's Encrypt registration
-export LEGO_EMAIL="your-email@example.com"
-# Azure subscription and resource group
-export AZURE_SUBSCRIPTION_ID="your-azure-subscription-id"
-export AZURE_RESOURCE_GROUP="your-resource-group-name"
-# Azure Key Vault for certificate storage
-export AZURE_KEY_VAULT_URL="https://your-keyvault.vault.azure.net/"
-# Azure authentication (Service Principal)
-export AZURE_CLIENT_ID="your-service-principal-client-id"
-export AZURE_CLIENT_SECRET="your-service-principal-client-secret"
-export AZURE_TENANT_ID="your-azure-tenant-id"
-`)
-}
+func generateEnvWithTemplate(shell, msiType string, force bool) {
+	envTemplate, err := envTemplates.ReadFile(fmt.Sprintf("templates/env/%s.tmpl", strings.ToLower(shell)))
+	if err != nil {
+		log.Fatalf("Error (internal) reading environment template: %v", err)
+	}
 
-func generatePowerShellTemplate() {
-	fmt.Print(`# ACME account email for Let's Encrypt registration
-$env:LEGO_EMAIL = "your-email@example.com"
-# Azure subscription and resource group
-$env:AZURE_SUBSCRIPTION_ID = "your-azure-subscription-id"
-$env:AZURE_RESOURCE_GROUP = "your-resource-group-name"
-# Azure Key Vault for certificate storage
-$env:AZURE_KEY_VAULT_URL = "https://your-keyvault.vault.azure.net/"
-# Azure authentication (Service Principal)
-$env:AZURE_CLIENT_ID = "your-service-principal-client-id"
-$env:AZURE_CLIENT_SECRET = "your-service-principal-client-secret"
-$env:AZURE_TENANT_ID = "your-azure-tenant-id"
-`)
+	tmpl, err := template.New(shell).Parse(string(envTemplate))
+	if err != nil {
+		log.Fatalf("Error parsing environment template: %v", err)
+	}
+
+	var msiTypeStr string
+	switch msiType {
+	case constants.MSISystem:
+		msiTypeStr = "System-assigned Managed Identity"
+	case constants.MSIUser:
+		msiTypeStr = "User-assigned Managed Identity"
+	default:
+		msiTypeStr = "Service Principal"
+	}
+
+	names := envTemplateKeyNames{
+		SubscriptionID:         constants.EnvAzureSubscriptionId,
+		ResourceGroupName:      constants.EnvResourceGroup,
+		KeyVaultURL:            constants.EnvAzureKeyVaultURL,
+		Email:                  constants.EnvLegoEmail,
+		AzureClientID:          constants.EnvAzureClientId,
+		AzureClientSecret:      constants.EnvAzureClientSecret,
+		AzureTenantID:          constants.EnvAzureTenantId,
+		AzureAuthMethod:        legoAzure.EnvAuthMethod,
+		MSIType:                msiType,
+		MSITypeStr:             msiTypeStr,
+		EmailValue:             getValueOrPlaceholder(constants.Email, "<your-email@example.com>", force),
+		SubscriptionIDValue:    getValueOrPlaceholder(constants.SubscriptionID, "your-subscription-id", force),
+		ResourceGroupNameValue: getValueOrPlaceholder(constants.ResourceGroupName, "your-resource-group-name", force),
+		KeyVaultURLValue:       getValueOrPlaceholder(constants.KeyVaultURL, "https://your-keyvault.vault.azure.net/", force),
+		AzureClientIDValue:     getValueOrPlaceholder(constants.AzureClientID, "your-client-id", force),
+		AzureClientSecretValue: getValueOrPlaceholder(constants.AzureClientSecret, "your-client-secret", force),
+		AzureTenantIDValue:     getValueOrPlaceholder(constants.AzureTenantID, "your-tenant-id", force),
+		AzureAuthMethodValue:   getValueOrPlaceholder(constants.AzureAuthMethod, "(none|system|user)", force),
+	}
+
+	var output bytes.Buffer
+	if err := tmpl.Execute(&output, names); err != nil {
+		log.Fatalf("Error executing %s template: %v", strings.ToUpper(shell), err)
+	}
+
+	fmt.Print(output.String())
 }
 
 // GenerateServicePrincipalTemplate generates environment variable templates with actual SP values
@@ -131,39 +158,6 @@ func generateServicePrincipalPowerShellTemplate(spInfo *types.ServicePrincipalIn
 	}
 }
 
-// MSI template methods
-func generateMSIBashTemplate(isUserMSI bool) {
-	fmt.Print(`# ACME account email for Let's Encrypt registration
-export LEGO_EMAIL="your-email@example.com"
-# Azure subscription and resource group
-export AZURE_SUBSCRIPTION_ID="your-azure-subscription-id"
-export AZURE_RESOURCE_GROUP="your-resource-group-name"
-# Azure Key Vault for certificate storage
-export AZURE_KEY_VAULT_URL="https://your-keyvault.vault.azure.net/"
-# Azure authentication (Managed Identity)
-export AZURE_AUTH_METHOD="msi"
-`)
-	if isUserMSI {
-		fmt.Print("export AZURE_CLIENT_ID=\"your-user-assigned-msi-client-id\"")
-	}
-}
-
-func generateMSIPowerShellTemplate(isUserMSI bool) {
-	fmt.Print(`# ACME account email for Let's Encrypt registration
-$env:LEGO_EMAIL = "your-email@example.com"
-# Azure subscription and resource group
-$env:AZURE_SUBSCRIPTION_ID = "your-azure-subscription-id"
-$env:AZURE_RESOURCE_GROUP = "your-resource-group-name"
-# Azure Key Vault for certificate storage
-$env:AZURE_KEY_VAULT_URL = "https://your-keyvault.vault.azure.net/"
-# Azure authentication (Managed Identity)
-$env:AZURE_AUTH_METHOD = "msi"
-`)
-	if isUserMSI {
-		fmt.Print("$env:AZURE_CLIENT_ID = \"your-user-assigned-msi-client-id\"")
-	}
-}
-
 type configTemplateKeyNames struct {
 	SubscriptionID    string
 	ResourceGroupName string
@@ -187,9 +181,9 @@ type configTemplateKeyNames struct {
 var configTemplates embed.FS
 
 func generateConfigWithTemplate(format string) {
-	yamlTemplate, err := configTemplates.ReadFile(fmt.Sprintf("templates/config/%s.tmpl", format))
+	yamlTemplate, err := configTemplates.ReadFile(fmt.Sprintf("templates/config/%s.tmpl", strings.ToLower(format)))
 	if err != nil {
-		log.Fatalf("Error (internal) reading YAML template: %v", err)
+		log.Fatalf("Error (internal) reading %s template: %v", format, err)
 	}
 
 	tmpl, err := template.New(format).Parse(string(yamlTemplate))
