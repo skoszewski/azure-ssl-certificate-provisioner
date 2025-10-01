@@ -7,8 +7,8 @@ case "$(uname -o)" in
 esac
 
 case "$(uname -m)" in
-  "x86_64") export GOARCH=amd64 ;;
-  "arm64") export GOARCH=arm64 ;;
+  "x86_64"| "amd64") export GOARCH=amd64 ;;
+  "arm64" | "aarch64") export GOARCH=arm64 ;;
   *) echo "Unsupported architecture"; exit 1 ;;
 esac
 
