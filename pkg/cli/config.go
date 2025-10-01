@@ -23,15 +23,7 @@ For environment variables, use: %s`, strings.Join(availableConfigFormats, ", "),
 func configRun(cmd *cobra.Command, args []string) {
 	format, _ := cmd.Flags().GetString(constants.Format)
 	utilities.LogVerbose("The chosen format is %v", format)
-	GenerateConfigTemplate(format)
-}
 
-func configSetup(cmd *cobra.Command) {
-	cmd.Flags().StringP(constants.Format, "f", constants.YAML, "config file format")
-}
-
-// GenerateConfigTemplate generates configuration templates in different formats
-func GenerateConfigTemplate(format string) {
 	switch format {
 	case constants.JSON:
 		generateConfigWithTemplate(constants.JSON)
@@ -44,4 +36,8 @@ func GenerateConfigTemplate(format string) {
 		fmt.Printf("For environment variables, use: %s environment\n", constants.CommandName)
 		return
 	}
+}
+
+func configSetup(cmd *cobra.Command) {
+	cmd.Flags().StringP(constants.Format, "f", constants.YAML, "config file format")
 }
