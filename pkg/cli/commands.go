@@ -3,11 +3,11 @@ package cli
 import (
 	"os"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-
 	"azure-ssl-certificate-provisioner/internal/utilities"
 	"azure-ssl-certificate-provisioner/pkg/constants"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 func Execute() {
@@ -52,9 +52,9 @@ func init() {
 	viper.BindEnv(constants.Email, "LEGO_EMAIL")
 
 	// Azure authentication environment variables for lego DNS provider
-	viper.BindEnv(constants.AzureClientId, "AZURE_CLIENT_ID")
+	viper.BindEnv(constants.AzureClientID, "AZURE_CLIENT_ID")
 	viper.BindEnv(constants.AzureClientSecret, "AZURE_CLIENT_SECRET")
-	viper.BindEnv(constants.AzureTenantId, "AZURE_TENANT_ID")
+	viper.BindEnv(constants.AzureTenantID, "AZURE_TENANT_ID")
 	viper.BindEnv(constants.AzureAuthMethod, "AZURE_AUTH_METHOD")
 	viper.BindEnv(constants.AzureAuthMsiTimeout, "AZURE_AUTH_MSI_TIMEOUT")
 

@@ -34,11 +34,11 @@ func configSetup(cmd *cobra.Command) {
 func GenerateConfigTemplate(format string) {
 	switch format {
 	case constants.JSON:
-		generateJSONConfig()
+		generateConfigWithTemplate(constants.JSON)
 	case constants.TOML:
-		generateTOMLConfig()
+		generateConfigWithTemplate(constants.TOML)
 	case constants.YAML:
-		generateYAMLConfig()
+		generateConfigWithTemplate(constants.YAML)
 	default:
 		fmt.Printf("Error: Unsupported format '%s'. Supported formats: %s\n", format, strings.Join(availableConfigFormats, ", "))
 		fmt.Printf("For environment variables, use: %s environment\n", constants.CommandName)

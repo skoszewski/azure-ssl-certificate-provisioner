@@ -1,0 +1,17 @@
+# Azure SSL Certificate Provisioner Configuration
+{{.SubscriptionID}} = "your-azure-subscription-id"
+{{.ResourceGroupName}} = "your-resource-group-name"
+{{.KeyVaultURL}} = "https://your-keyvault.vault.azure.net/"
+{{.Email}} = "your-email@example.com"
+{{.Staging}} = true
+{{.ExpireThreshold}} = 7
+{{.AzureClientID}} = "your-service-principal-client-id"
+{{.AzureClientSecret}} = "your-service-principal-client-secret"
+{{.AzureTenantID}} = "your-azure-tenant-id"
+{{.Zones}} = ["example.com", "subdomain.example.com"]
+{{.Name}} = "azure-ssl-cert-provisioner"
+{{.KeyVaultName}} = "your-keyvault-name"
+{{.KeyVaultRG}} = "your-keyvault-resource-group"
+{{.NoRoles}} = false
+{{.UseCertAuth}} = false
+{{.Shell}} = "bash"

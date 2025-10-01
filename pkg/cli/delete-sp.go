@@ -26,20 +26,20 @@ This command will:
 
 func deleteSPCmdSetup(cmd *cobra.Command) {
 	// Add flags
-	cmd.Flags().StringP("client-id", "c", "", "Client ID (App ID) of the Azure AD application to delete (required)")
+	cmd.Flags().StringP(constants.ClientID, "c", "", "Client ID (App ID) of the Azure AD application to delete (required)")
 	cmd.Flags().String(constants.TenantID, "", "Azure AD tenant ID (optional, will use default if not specified)")
 	cmd.Flags().StringP(constants.SubscriptionID, "s", "", "Azure subscription ID (required for role assignment cleanup)")
 
-	viper.BindPFlag("delete-sp-client-id", deleteSPCmd.Flags().Lookup("client-id"))
-	viper.BindPFlag(constants.AzureTenantId, deleteSPCmd.Flags().Lookup(constants.TenantID))
-	viper.BindPFlag("subscription", deleteSPCmd.Flags().Lookup(constants.SubscriptionID))
+	viper.BindPFlag(constants.ClientID, deleteSPCmd.Flags().Lookup(constants.ClientID))
+	viper.BindPFlag(constants.AzureTenantID, deleteSPCmd.Flags().Lookup(constants.TenantID))
+	viper.BindPFlag(constants.SubscriptionID, deleteSPCmd.Flags().Lookup(constants.SubscriptionID))
 }
 
 // deleteSPCmdRunE executes the delete-sp command
 func deleteSPCmdRunE(cmd *cobra.Command, args []string) error {
-	clientID := viper.GetString("delete-sp-client-id")
-	tenantID := viper.GetString(constants.AzureTenantId)
-	subscriptionID := viper.GetString("subscription")
+	clientID := viper.GetString(constants.ClientID)
+	tenantID := viper.GetString(constants.AzureTenantID)
+	subscriptionID := viper.GetString(constants.SubscriptionID)
 
 	if clientID == "" {
 		return fmt.Errorf("client-id is required")

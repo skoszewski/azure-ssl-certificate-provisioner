@@ -11,16 +11,21 @@ const (
 	ConfigFile        = "config"
 
 	// Authentication related keywords and Viper keys
-	AzureClientId        = "azure-client-id"
-	AzureSubscriptionId  = "azure-subscription-id"
-	AzureTenantId        = "azure-tenant-id"
-	AzureClientSecret    = "azure-client-secret"
-	AzureKeyFileName     = "azure-key-file-name"
-	AzureCertFileName    = "azure-cert-file-name"
-	AzureAuthMethod      = "azure-auth-method"
-	AzureAuthMsiTimeout  = "azure-auth-msi-timeout"
-	AzureKeyVaultName    = "azure-key-vault-name"
-	AzureKVResourceGroup = "azure-kv-resource-group"
+	AzureClientID       = "azure-client-id"
+	AzureClientSecret   = "azure-client-secret"
+	AzureTenantID       = "azure-tenant-id"
+	AzureAuthMethod     = "azure-auth-method"
+	AzureAuthMsiTimeout = "azure-auth-msi-timeout"
+
+	// Keys related to Service Principal creation and management
+	Name         = "name"
+	ClientID     = "client-id"
+	KeyVaultName = "kv-name"
+	KeyVaultRG   = "kv-resource-group"
+	NoRoles      = "no-roles"
+	UseCertAuth  = "use-cert-auth"
+	KeyFileName  = "key-file-name"
+	CertFileName = "cert-file-name"
 
 	// Other keywords and Viper keys
 	Staging         = "staging"
@@ -29,6 +34,8 @@ const (
 	Verbose         = "verbose"
 	Shell           = "shell"
 	UseMSI          = "use-msi"
+	MSISystem       = "system"
+	MSIUser         = "user"
 	Bash            = "bash"
 	PowerShell      = "powershell"
 	JSON            = "json"

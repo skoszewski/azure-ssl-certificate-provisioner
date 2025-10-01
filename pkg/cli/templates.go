@@ -1,8 +1,12 @@
 package cli
 
 import (
+	"bytes"
+	"embed"
 	"fmt"
+	"log"
 	"strings"
+	"text/template"
 
 	"azure-ssl-certificate-provisioner/internal/types"
 	"azure-ssl-certificate-provisioner/internal/utilities"
@@ -11,24 +15,24 @@ import (
 
 // GenerateEnvironmentTemplate generates environment variable templates
 func GenerateEnvironmentTemplate(shell string, msiType string) {
-	isUserMSI := msiType == "user"
+	isUserMSI := msiType == constants.MSIUser
 
 	switch strings.ToLower(shell) {
 	case constants.PowerShell, "ps1":
-		if msiType == "system" || msiType == "user" {
+		if msiType == constants.MSISystem || msiType == constants.MSIUser {
 			generateMSIPowerShellTemplate(isUserMSI)
 		} else {
 			generatePowerShellTemplate()
 		}
 	case constants.Bash, "sh":
-		if msiType == "system" || msiType == "user" {
+		if msiType == constants.MSISystem || msiType == constants.MSIUser {
 			generateMSIBashTemplate(isUserMSI)
 		} else {
 			generateBashTemplate()
 		}
 	default:
 		utilities.LogDefault("Unsupported shell type: shell=%s, supported=%s,%s", shell, constants.Bash, constants.PowerShell)
-		if msiType == "system" || msiType == "user" {
+		if msiType == constants.MSISystem || msiType == constants.MSIUser {
 			generateMSIBashTemplate(isUserMSI)
 		} else {
 			generateBashTemplate()
@@ -160,71 +164,62 @@ $env:AZURE_AUTH_METHOD = "msi"
 	}
 }
 
-// generateJSONConfig generates JSON configuration template
-func generateJSONConfig() {
-	fmt.Print(`{
-  "subscription": "your-azure-subscription-id",
-  "resource-group": "your-resource-group-name",
-  "key-vault-url": "https://your-keyvault.vault.azure.net/",
-  "email": "your-email@example.com",
-  "staging": true,
-  "expire-threshold": 7,
-  "azure-client-id": "your-service-principal-client-id",
-  "azure-client-secret": "your-service-principal-client-secret",
-  "azure-tenant-id": "your-azure-tenant-id",
-  "zones": ["example.com", "subdomain.example.com"],
-  "sp-name": "azure-ssl-cert-provisioner",
-  "kv-name": "your-keyvault-name",
-  "kv-resource-group": "your-keyvault-resource-group",
-  "sp-no-roles": false,
-  "sp-use-cert-auth": false,
-  "shell": "bash"
-}
-`)
+type configTemplateKeyNames struct {
+	SubscriptionID    string
+	ResourceGroupName string
+	KeyVaultURL       string
+	Email             string
+	Staging           string
+	ExpireThreshold   string
+	AzureClientID     string
+	AzureClientSecret string
+	AzureTenantID     string
+	Zones             string
+	Name              string
+	KeyVaultName      string
+	KeyVaultRG        string
+	NoRoles           string
+	UseCertAuth       string
+	Shell             string
 }
 
-// generateTOMLConfig generates TOML configuration template
-func generateTOMLConfig() {
-	fmt.Print(`# Azure SSL Certificate Provisioner Configuration
-subscription = "your-azure-subscription-id"
-resource-group = "your-resource-group-name"
-key-vault-url = "https://your-keyvault.vault.azure.net/"
-email = "your-email@example.com"
-staging = true
-expire-threshold = 7
-azure-client-id = "your-service-principal-client-id"
-azure-client-secret = "your-service-principal-client-secret"
-azure-tenant-id = "your-azure-tenant-id"
-zones = ["example.com", "subdomain.example.com"]
-sp-name = "azure-ssl-cert-provisioner"
-kv-name = "your-keyvault-name"
-kv-resource-group = "your-keyvault-resource-group"
-sp-no-roles = false
-sp-use-cert-auth = false
-shell = "bash"
-`)
-}
+//go:embed templates/config/*.tmpl
+var configTemplates embed.FS
 
-// generateYAMLConfig generates YAML configuration template
-func generateYAMLConfig() {
-	fmt.Print(`# Azure SSL Certificate Provisioner Configuration
-subscription: "your-azure-subscription-id"
-resource-group: "your-resource-group-name"
-key-vault-url: "https://your-keyvault.vault.azure.net/"
-email: "your-email@example.com"
-staging: true
-expire-threshold: 7
-azure-client-id: "your-service-principal-client-id"
-azure-client-secret: "your-service-principal-client-secret"
-azure-tenant-id: "your-azure-tenant-id"
-zones:
-  - "example.com"
-  - "subdomain.example.com"
-sp-name: "azure-ssl-cert-provisioner"
-kv-name: "your-keyvault-name"
-kv-resource-group: "your-keyvault-resource-group"
-sp-no-roles: false
-sp-use-cert-auth: false
-shell: "bash"
-`)
+func generateConfigWithTemplate(format string) {
+	yamlTemplate, err := configTemplates.ReadFile(fmt.Sprintf("templates/config/%s.tmpl", format))
+	if err != nil {
+		log.Fatalf("Error (internal) reading YAML template: %v", err)
+	}
+
+	tmpl, err := template.New(format).Parse(string(yamlTemplate))
+	if err != nil {
+		log.Fatalf("Error parsing YAML template: %v", err)
+	}
+
+	names := configTemplateKeyNames{
+		SubscriptionID:    constants.SubscriptionID,
+		ResourceGroupName: constants.ResourceGroupName,
+		KeyVaultURL:       constants.KeyVaultURL,
+		Email:             constants.Email,
+		Staging:           constants.Staging,
+		ExpireThreshold:   constants.ExpireThreshold,
+		AzureClientID:     constants.AzureClientID,
+		AzureClientSecret: constants.AzureClientSecret,
+		AzureTenantID:     constants.AzureTenantID,
+		Zones:             constants.Zones,
+		Name:              constants.Name,
+		KeyVaultName:      constants.KeyVaultName,
+		KeyVaultRG:        constants.KeyVaultRG,
+		NoRoles:           constants.NoRoles,
+		UseCertAuth:       constants.UseCertAuth,
+		Shell:             constants.Shell,
+	}
+
+	var output bytes.Buffer
+	if err := tmpl.Execute(&output, names); err != nil {
+		log.Fatalf("Error executing %s template: %v", strings.ToUpper(format), err)
+	}
+
+	fmt.Print(output.String())
 }

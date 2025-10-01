@@ -153,23 +153,23 @@ func runCmdRun(cmd *cobra.Command, args []string) {
 func setAzureDNSEnvironment(subscriptionID, resourceGroup string) error {
 	// Set required environment variables for the azuredns provider
 	if subscriptionID != "" {
-		os.Setenv("AZURE_SUBSCRIPTION_ID", subscriptionID)
+		os.Setenv(legoAzure.EnvSubscriptionID, subscriptionID)
 	}
 	if resourceGroup != "" {
-		os.Setenv("AZURE_RESOURCE_GROUP", resourceGroup)
+		os.Setenv(legoAzure.EnvResourceGroup, resourceGroup)
 	}
 
 	// Set auth method if specified via viper
 	authMethod := viper.GetString(constants.AzureAuthMethod)
 	if authMethod != "" {
-		os.Setenv("AZURE_AUTH_METHOD", authMethod)
+		os.Setenv(legoAzure.EnvAuthMethod, authMethod)
 		utilities.LogDefault("Azure DNS authentication method: %s", authMethod)
 	}
 
 	// Set MSI timeout if specified
 	msiTimeout := viper.GetString(constants.AzureAuthMsiTimeout)
 	if msiTimeout != "" {
-		os.Setenv("AZURE_AUTH_MSI_TIMEOUT", msiTimeout)
+		os.Setenv(legoAzure.EnvAuthMSITimeout, msiTimeout)
 	}
 
 	return nil

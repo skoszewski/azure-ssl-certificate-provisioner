@@ -23,7 +23,7 @@ func ValidateRequiredEnvVars() error {
 
 	if authMethod == "msi" {
 		utilities.LogDefault("MSI authentication configured")
-		clientID := viper.GetString(constants.AzureClientId)
+		clientID := viper.GetString(constants.AzureClientID)
 		if clientID != "" {
 			utilities.LogDefault("User-assigned MSI client ID: %s", clientID)
 		} else {
@@ -34,9 +34,9 @@ func ValidateRequiredEnvVars() error {
 
 	// Check Azure authentication variables required by lego DNS provider
 	// These are needed for the Azure DNS provider to authenticate with Azure
-	clientID := viper.GetString(constants.AzureClientId)
+	clientID := viper.GetString(constants.AzureClientID)
 	clientSecret := viper.GetString(constants.AzureClientSecret)
-	tenantID := viper.GetString(constants.AzureTenantId)
+	tenantID := viper.GetString(constants.AzureTenantID)
 
 	// If no explicit auth method is set, check if we have service principal credentials
 	if authMethod == "" {
