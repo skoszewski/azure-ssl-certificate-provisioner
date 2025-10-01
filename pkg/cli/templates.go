@@ -40,9 +40,14 @@ type envTemplateKeyNames struct {
 var envTemplates embed.FS
 
 func getValueOrPlaceholder(key, placeholder string, spInfo *types.ServicePrincipalInfo, force bool) string {
+	// Always return placeholder if force is true
+	if force {
+		return placeholder
+	}
+
 	if spInfo == nil {
 		value := viper.GetString(key)
-		if value == "" || force { // If force is true, always return placeholder
+		if value == "" {
 			return placeholder
 		}
 		return value
@@ -172,12 +177,6 @@ type configTemplateKeyNames struct {
 	AzureClientSecret string
 	AzureTenantID     string
 	Zones             string
-	Name              string
-	KeyVaultName      string
-	KeyVaultRG        string
-	NoRoles           string
-	UseCertAuth       string
-	Shell             string
 }
 
 //go:embed templates/config/*.tmpl
@@ -205,12 +204,6 @@ func generateConfigWithTemplate(format string) {
 		AzureClientSecret: constants.AzureClientSecret,
 		AzureTenantID:     constants.AzureTenantID,
 		Zones:             constants.Zones,
-		Name:              constants.Name,
-		KeyVaultName:      constants.KeyVaultName,
-		KeyVaultRG:        constants.KeyVaultRG,
-		NoRoles:           constants.NoRoles,
-		UseCertAuth:       constants.UseCertAuth,
-		Shell:             constants.Shell,
 	}
 
 	var output bytes.Buffer
