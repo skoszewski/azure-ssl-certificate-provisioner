@@ -16,75 +16,14 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
-	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
-	"github.com/Azure/azure-sdk-for-go/sdk/keyvault/azcertificates"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dns/armdns"
 	"github.com/google/uuid"
-	msgraph "github.com/microsoftgraph/msgraph-sdk-go"
 	"github.com/microsoftgraph/msgraph-sdk-go/applications"
 	"github.com/microsoftgraph/msgraph-sdk-go/models"
 	"github.com/microsoftgraph/msgraph-sdk-go/serviceprincipals"
 
 	"azure-ssl-certificate-provisioner/internal/types"
 )
-
-var (
-	dnsClient           *armdns.RecordSetsClient
-	dnsZonesClient      *armdns.ZonesClient
-	keyVaultCertsClient *azcertificates.Client
-	graphClient         *msgraph.GraphServiceClient
-	credential          *azidentity.DefaultAzureCredential
-)
-
-func GetDnsClient() *armdns.RecordSetsClient {
-	return dnsClient
-}
-
-func GetDnsZonesClient() *armdns.ZonesClient {
-	return dnsZonesClient
-}
-
-func GetKeyVaultCertsClient() *azcertificates.Client {
-	return keyVaultCertsClient
-}
-
-func GetGraphClient() *msgraph.GraphServiceClient {
-	return graphClient
-}
-
-// NewClients creates new Azure service clients
-func NewClients(subscriptionID, vaultURL string) error {
-	var err error
-	credential, err = azidentity.NewDefaultAzureCredential(nil)
-	if err != nil {
-		return fmt.Errorf("failed to obtain Azure credential: %v", err)
-	}
-
-	dnsClient, err = armdns.NewRecordSetsClient(subscriptionID, credential, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create DNS client: %v", err)
-	}
-
-	dnsZonesClient, err = armdns.NewZonesClient(subscriptionID, credential, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create DNS zones client: %v", err)
-	}
-
-	keyVaultCertsClient, err = azcertificates.NewClient(vaultURL, credential, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create Key Vault client: %v", err)
-	}
-
-	// Request specific Graph API scopes for application management
-	graphClient, err = msgraph.NewGraphServiceClientWithCredentials(credential, []string{"https://graph.microsoft.com/.default"})
-
-	if err != nil {
-		return fmt.Errorf("failed to create Graph client: %v", err)
-	}
-
-	return nil
-}
 
 // CreateServicePrincipal creates a new Azure AD application and service principal
 func CreateServicePrincipal(displayName, tenantID, subscriptionID string, assignDNSRole bool, resourceGroupName, keyVaultName, keyVaultResourceGroup string, noRoles bool, useCertAuth bool) (*types.ServicePrincipalInfo, error) {

@@ -51,14 +51,8 @@ func deleteSPCmdRunE(cmd *cobra.Command, args []string) error {
 
 	utilities.LogDefault("Service principal deletion started: %s", clientID)
 
-	// Create Azure clients
-	err := azure.NewClients(subscriptionID, "")
-	if err != nil {
-		return fmt.Errorf("failed to create Azure clients: %v", err)
-	}
-
 	// Delete the service principal and application with role cleanup
-	err = azure.DeleteServicePrincipalByClientID(clientID, subscriptionID, tenantID)
+	err := azure.DeleteServicePrincipalByClientID(clientID, subscriptionID, tenantID)
 	if err != nil {
 		return fmt.Errorf("failed to delete service principal: %v", err)
 	}

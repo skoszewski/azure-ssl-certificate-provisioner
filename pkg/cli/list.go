@@ -70,12 +70,6 @@ func listCmdRun(cmd *cobra.Command, args []string) {
 	resourceGroupName := viper.GetString(constants.ResourceGroupName)
 	vaultURL := viper.GetString(constants.KeyVaultURL)
 
-	// Create Azure clients (no need for lego/ACME setup for listing)
-	err := azure.NewClients(subscriptionId, vaultURL)
-	if err != nil {
-		log.Fatalf("Failed to create Azure clients: %v", err)
-	}
-
 	utilities.LogDefault("List mode started: subscription=%s, resource_group=%s, key_vault=%s", subscriptionId, resourceGroupName, vaultURL)
 
 	listProcessor := &CertificateListProcessor{

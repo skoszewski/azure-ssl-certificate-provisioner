@@ -53,10 +53,6 @@ func createSPCmdPreRunE(cmd *cobra.Command, args []string) error {
 		log.Fatalf("Tenant ID is required. Use --%s flag.", constants.TenantID)
 	}
 
-	if viper.GetString(constants.SubscriptionID) == "" {
-		log.Fatalf("Subscription ID is required. Use --%s flag.", constants.SubscriptionID)
-	}
-
 	return nil
 }
 
@@ -105,13 +101,7 @@ func createSPCmdRun(cmd *cobra.Command, args []string) {
 	if !viper.GetBool(constants.DryRun) {
 		utilities.LogDefault("Service principal creation started: %s", displayName)
 
-		// Create Azure clients
-		err := azure.NewClients(subscriptionID, "https://dummy.vault.azure.net/") // Dummy URL since we don't need KV client here
-		if err != nil {
-			log.Fatalf("Failed to create Azure clients: %v", err)
-		}
-
-		spInfo, err = azure.CreateServicePrincipal(displayName, tenantID, subscriptionID, assignRole, resourceGroup, keyVaultName, keyVaultResourceGroup, noRoles, useCertAuth)
+		spInfo, err := azure.CreateServicePrincipal(displayName, tenantID, subscriptionID, assignRole, resourceGroup, keyVaultName, keyVaultResourceGroup, noRoles, useCertAuth)
 		if err != nil {
 			log.Fatalf("Failed to create service principal: %v", err)
 		}

@@ -74,14 +74,6 @@ func runCmdRun(cmd *cobra.Command, args []string) {
 	staging := viper.GetBool(constants.Staging)
 	email := viper.GetString(constants.Email)
 
-	vaultURL := viper.GetString(constants.KeyVaultURL)
-
-	// Create Azure clients
-	err := azure.NewClients(subscriptionId, vaultURL)
-	if err != nil {
-		log.Fatalf("Failed to create Azure clients: %v", err)
-	}
-
 	// Configure ACME server based on staging flag
 	var serverURL string
 	if staging {
