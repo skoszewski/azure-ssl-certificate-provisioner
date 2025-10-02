@@ -22,7 +22,6 @@ const (
 	ClientID        = "client-id"
 	KeyVaultName    = "kv-name"
 	KeyVaultRG      = "kv-resource-group"
-	NoRoles         = "no-roles"
 	DryRun          = "dry-run"
 	UseCertAuth     = "use-cert-auth"
 	PrivateKeyPath  = "private-key-path"

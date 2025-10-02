@@ -1,8 +1,7 @@
 package cli
 
 import (
-	"azure-ssl-certificate-provisioner/internal/types"
-	"azure-ssl-certificate-provisioner/internal/utilities"
+	"azure-ssl-certificate-provisioner/pkg/azure"
 	"azure-ssl-certificate-provisioner/pkg/constants"
 	"bytes"
 	"embed"
@@ -39,7 +38,7 @@ type envTemplateKeyNames struct {
 //go:embed templates/env/*.tmpl
 var envTemplates embed.FS
 
-func getValueOrPlaceholder(key, placeholder string, spInfo *types.ServicePrincipalInfo, force bool) string {
+func getValueOrPlaceholder(key, placeholder string, spInfo *azure.ServicePrincipalInfo, force bool) string {
 	// Always return placeholder if force is true
 	if force {
 		return placeholder
@@ -55,7 +54,7 @@ func getValueOrPlaceholder(key, placeholder string, spInfo *types.ServicePrincip
 	return spInfo.GetValue(key)
 }
 
-func generateEnvWithTemplate(shell, msiType string, spInfo *types.ServicePrincipalInfo, force bool) {
+func generateEnvWithTemplate(shell, msiType string, spInfo *azure.ServicePrincipalInfo, force bool) {
 	envTemplate, err := envTemplates.ReadFile(fmt.Sprintf("templates/env/%s.tmpl", strings.ToLower(shell)))
 	if err != nil {
 		log.Fatalf("Error (internal) reading environment template: %v", err)
@@ -103,67 +102,6 @@ func generateEnvWithTemplate(shell, msiType string, spInfo *types.ServicePrincip
 	}
 
 	fmt.Print(output.String())
-}
-
-// GenerateServicePrincipalTemplate generates environment variable templates with actual SP values
-func GenerateServicePrincipalTemplate(spInfo *types.ServicePrincipalInfo, shell, keyVaultName, keyVaultResourceGroup string) {
-	switch strings.ToLower(shell) {
-	case constants.PowerShell, "ps1":
-		generateServicePrincipalPowerShellTemplate(spInfo, keyVaultName, keyVaultResourceGroup)
-	case constants.Bash, "sh":
-		generateServicePrincipalBashTemplate(spInfo, keyVaultName, keyVaultResourceGroup)
-	default:
-		utilities.LogDefault("Unsupported shell type: shell=%s, using=%s", shell, constants.Bash)
-		generateServicePrincipalBashTemplate(spInfo, keyVaultName, keyVaultResourceGroup)
-	}
-}
-
-func generateServicePrincipalBashTemplate(spInfo *types.ServicePrincipalInfo, keyVaultName, keyVaultResourceGroup string) {
-	fmt.Println("export LEGO_EMAIL=\"your-email@example.com\"")
-	fmt.Printf("export AZURE_SUBSCRIPTION_ID=\"%s\"\n", spInfo.SubscriptionID)
-	fmt.Printf("export AZURE_TENANT_ID=\"%s\"\n", spInfo.TenantID)
-	if keyVaultResourceGroup != "" {
-		fmt.Printf("export AZURE_RESOURCE_GROUP=\"%s\"\n", keyVaultResourceGroup)
-	} else {
-		fmt.Println("export AZURE_RESOURCE_GROUP=\"your-resource-group-name\"")
-	}
-	if keyVaultName != "" {
-		fmt.Printf("export AZURE_KEY_VAULT_URL=\"https://%s.vault.azure.net/\"\n", keyVaultName)
-	} else {
-		fmt.Println("export AZURE_KEY_VAULT_URL=\"https://your-keyvault.vault.azure.net/\"")
-	}
-	fmt.Printf("export AZURE_CLIENT_ID=\"%s\"\n", spInfo.ClientID)
-
-	if spInfo.UseCertAuth {
-		fmt.Printf("export AZURE_CLIENT_CERTIFICATE_PATH=\"%s.crt\"\n", spInfo.ClientID)
-		fmt.Printf("export AZURE_CLIENT_CERTIFICATE_PASSWORD=\"\"\n")
-	} else {
-		fmt.Printf("export AZURE_CLIENT_SECRET=\"%s\"\n", spInfo.ClientSecret)
-	}
-}
-
-func generateServicePrincipalPowerShellTemplate(spInfo *types.ServicePrincipalInfo, keyVaultName, keyVaultResourceGroup string) {
-	fmt.Println("$env:LEGO_EMAIL = \"your-email@example.com\"")
-	fmt.Printf("$env:AZURE_SUBSCRIPTION_ID = \"%s\"\n", spInfo.SubscriptionID)
-	fmt.Printf("$env:AZURE_TENANT_ID = \"%s\"\n", spInfo.TenantID)
-	if keyVaultResourceGroup != "" {
-		fmt.Printf("$env:AZURE_RESOURCE_GROUP = \"%s\"\n", keyVaultResourceGroup)
-	} else {
-		fmt.Println("$env:AZURE_RESOURCE_GROUP = \"your-resource-group-name\"")
-	}
-	if keyVaultName != "" {
-		fmt.Printf("$env:AZURE_KEY_VAULT_URL = \"https://%s.vault.azure.net/\"\n", keyVaultName)
-	} else {
-		fmt.Println("$env:AZURE_KEY_VAULT_URL = \"https://your-keyvault.vault.azure.net/\"")
-	}
-	fmt.Printf("$env:AZURE_CLIENT_ID = \"%s\"\n", spInfo.ClientID)
-
-	if spInfo.UseCertAuth {
-		fmt.Printf("$env:AZURE_CLIENT_CERTIFICATE_PATH = \"%s.crt\"\n", spInfo.ClientID)
-		fmt.Printf("$env:AZURE_CLIENT_CERTIFICATE_PASSWORD = \"\"\n")
-	} else {
-		fmt.Printf("$env:AZURE_CLIENT_SECRET = \"%s\"\n", spInfo.ClientSecret)
-	}
 }
 
 type configTemplateKeyNames struct {

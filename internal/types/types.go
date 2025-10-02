@@ -1,11 +1,9 @@
 package types
 
 import (
-	"azure-ssl-certificate-provisioner/pkg/constants"
 	"crypto"
 
 	"github.com/go-acme/lego/v4/registration"
-	"github.com/spf13/viper"
 )
 
 // AcmeUser implements the ACME user interface for lego client
@@ -56,36 +54,4 @@ func (a *Account) GetPrivateKey() crypto.PrivateKey {
 
 func (a *Account) SetPrivateKey(key crypto.PrivateKey) {
 	a.key = key
-}
-
-// ServicePrincipalInfo contains Azure service principal information
-type ServicePrincipalInfo struct {
-	ApplicationID      string
-	ClientID           string
-	ClientSecret       string
-	ServicePrincipalID string
-	SubscriptionID     string
-	TenantID           string
-	UseCertAuth        bool
-	PrivateKeyPath     string
-	CertificatePath    string
-}
-
-func (sp *ServicePrincipalInfo) GetValue(key string) string {
-	switch key {
-	case constants.SubscriptionID:
-		return sp.SubscriptionID
-	case constants.TenantID:
-		return sp.TenantID
-	case constants.AzureClientID:
-		return sp.ClientID
-	case constants.AzureClientSecret:
-		return sp.ClientSecret
-	case constants.PrivateKeyPath:
-		return sp.PrivateKeyPath
-	case constants.CertificatePath:
-		return sp.CertificatePath
-	default:
-		return viper.GetString(key)
-	}
 }

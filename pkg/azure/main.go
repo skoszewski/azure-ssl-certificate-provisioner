@@ -4,14 +4,18 @@ import (
 	"azure-ssl-certificate-provisioner/pkg/constants"
 	"log"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/keyvault/azcertificates"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dns/armdns"
 	msgraph "github.com/microsoftgraph/msgraph-sdk-go"
 	"github.com/spf13/viper"
 )
 
 var (
+	authClient          *armauthorization.RoleAssignmentsClient
 	dnsClient           *armdns.RecordSetsClient
 	dnsZonesClient      *armdns.ZonesClient
 	keyVaultCertsClient *azcertificates.Client
@@ -94,4 +98,28 @@ func GetKeyVaultCertsClient() *azcertificates.Client {
 	}
 
 	return keyVaultCertsClient
+}
+
+func GetAuthClient() *armauthorization.RoleAssignmentsClient {
+	if authClient == nil {
+		subscriptionID := viper.GetString(constants.SubscriptionID)
+
+		if subscriptionID == "" {
+			log.Fatalf("Subscription ID is required to initialize Authorization client.")
+		}
+
+		// Create the client options with the desired API version
+		clientOptions := &arm.ClientOptions{
+			ClientOptions: policy.ClientOptions{
+				APIVersion: "2022-04-01",
+			},
+		}
+
+		authClient, err = armauthorization.NewRoleAssignmentsClient(subscriptionID, credential, clientOptions)
+		if err != nil {
+			log.Fatalf("failed to create authorization client: %v", err)
+		}
+	}
+
+	return authClient
 }
