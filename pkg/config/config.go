@@ -1,72 +1,71 @@
 package config
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/spf13/viper"
 
 	"azure-ssl-certificate-provisioner/internal/utilities"
-	"azure-ssl-certificate-provisioner/pkg/constants"
 )
 
-// ValidateRequiredEnvVars validates that all required environment variables are set
-func ValidateRequiredEnvVars() error {
-	// Check Azure Key Vault URL
-	vaultURL := viper.GetString(constants.KeyVaultURL)
-	if vaultURL == "" {
-		return fmt.Errorf("AZURE_KEY_VAULT_URL environment variable is required")
+// Config represents the application configuration structure
+type Config struct {
+	SubscriptionID    string   `mapstructure:"subscription-id"`
+	ResourceGroup     string   `mapstructure:"resource-group"`
+	KeyVaultURL       string   `mapstructure:"key-vault-url"`
+	Email             string   `mapstructure:"email"`
+	Staging           bool     `mapstructure:"staging"`
+	ExpireThreshold   int      `mapstructure:"expire-threshold"`
+	AzureClientID     string   `mapstructure:"azure-client-id"`
+	AzureClientSecret string   `mapstructure:"azure-client-secret"`
+	AzureTenantID     string   `mapstructure:"azure-tenant-id"`
+	Zones             []string `mapstructure:"zones"`
+}
+
+var configFile string
+
+func InitConfig() {
+	viper.AddConfigPath(".")
+	viper.SetConfigName("config")
+
+	if configFile != "" {
+		viper.SetConfigFile(configFile)
+		utilities.LogVerbose("Config file set to: %s", configFile)
 	}
 
-	// Check authentication method
-	authMethod := viper.GetString(constants.AzureAuthMethod)
+	if err := viper.ReadInConfig(); err == nil {
+		utilities.LogVerbose("Using config file: %s", viper.ConfigFileUsed())
+	} else {
+		utilities.LogVerbose("No config file found, relying on environment variables and flags")
+	}
 
-	if authMethod == "msi" {
-		utilities.LogDefault("MSI authentication configured")
-		clientID := viper.GetString(constants.AzureClientID)
-		if clientID != "" {
-			utilities.LogDefault("User-assigned MSI client ID: %s", clientID)
+	var cfg Config
+	if err := viper.Unmarshal(&cfg); err != nil {
+		utilities.LogDefault("Failed to parse configuration: %v", err)
+	} else {
+		// Display loaded configuration for debugging
+		utilities.LogVerbose("Configuration loaded successfully.")
+		utilities.LogVerbose("Subscription ID: %s", cfg.SubscriptionID)
+		utilities.LogVerbose("Resource Group: %s", cfg.ResourceGroup)
+		utilities.LogVerbose("Key Vault URL: %s", cfg.KeyVaultURL)
+		utilities.LogVerbose("Email: %s", cfg.Email)
+		stagingStr := "Production"
+		if cfg.Staging {
+			stagingStr = "Staging"
+		}
+		utilities.LogVerbose("ACME environment: %s", stagingStr)
+		utilities.LogVerbose("Expire Threshold: %d days", cfg.ExpireThreshold)
+		utilities.LogVerbose("Azure Tenant ID: %s", cfg.AzureTenantID)
+		utilities.LogVerbose("Azure Client ID: %s", cfg.AzureClientID)
+		if cfg.AzureClientSecret != "" {
+			utilities.LogVerbose("Azure Client Secret: [REDACTED]")
 		} else {
-			utilities.LogDefault("System-assigned MSI will be used")
+			utilities.LogVerbose("Azure Client Secret: not set")
 		}
-		return nil
-	}
-
-	// Check Azure authentication variables required by lego DNS provider
-	// These are needed for the Azure DNS provider to authenticate with Azure
-	clientID := viper.GetString(constants.AzureClientID)
-	clientSecret := viper.GetString(constants.AzureClientSecret)
-	tenantID := viper.GetString(constants.AzureTenantID)
-
-	// If no explicit auth method is set, check if we have service principal credentials
-	if authMethod == "" {
-		// Auto-detect based on available credentials
-		if clientID != "" && clientSecret != "" && tenantID != "" {
-			utilities.LogDefault("Service Principal authentication configured: client_id=%s, tenant_id=%s", clientID, tenantID)
-			return nil
+		if len(cfg.Zones) > 0 {
+			utilities.LogVerbose("DNS Zones: %s", strings.Join(cfg.Zones, ", "))
+		} else {
+			utilities.LogVerbose("DNS Zones: none specified")
 		}
-
-		// Fall back to default credential chain if no explicit credentials
-		utilities.LogDefault("Using Azure Default Credential chain authentication")
-		return nil
 	}
-
-	// For explicit service principal auth method
-	missingVars := []string{}
-	if clientID == "" {
-		missingVars = append(missingVars, "AZURE_CLIENT_ID")
-	}
-	if clientSecret == "" {
-		missingVars = append(missingVars, "AZURE_CLIENT_SECRET")
-	}
-	if tenantID == "" {
-		missingVars = append(missingVars, "AZURE_TENANT_ID")
-	}
-
-	if len(missingVars) > 0 {
-		return fmt.Errorf("required Azure authentication environment variables are missing: %s (or set AZURE_AUTH_METHOD=msi for MSI authentication)", strings.Join(missingVars, ", "))
-	}
-
-	utilities.LogDefault("Service Principal authentication configured: client_id=%s, tenant_id=%s", clientID, tenantID)
-	return nil
 }

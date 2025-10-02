@@ -3,9 +3,9 @@ package cli
 import (
 	"os"
 
-	"azure-ssl-certificate-provisioner/internal/utilities"
 	"azure-ssl-certificate-provisioner/pkg/constants"
 
+	legoAzure "github.com/go-acme/lego/v4/providers/dns/azuredns"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -15,6 +15,11 @@ func Execute() {
 		// utilities.LogDefault("Command execution failed: %v", err)
 		os.Exit(1)
 	}
+}
+
+// Helper that simplifies binding Viper keys to Cobra flags
+func BindPFlag(cmd *cobra.Command, key string) {
+	viper.BindPFlag(key, cmd.Flags().Lookup(key))
 }
 
 func init() {
@@ -46,42 +51,21 @@ func init() {
 	rootCmd.AddCommand(deleteSPCmd)
 
 	// Bind Viper keys to environment variables
-	viper.BindEnv(constants.SubscriptionID, "AZURE_SUBSCRIPTION_ID")
-	viper.BindEnv(constants.ResourceGroupName, "AZURE_RESOURCE_GROUP")
-	viper.BindEnv(constants.KeyVaultURL, "AZURE_KEY_VAULT_URL")
-	viper.BindEnv(constants.Email, "LEGO_EMAIL")
+	viper.BindEnv(constants.SubscriptionID, legoAzure.EnvSubscriptionID)
+	viper.BindEnv(constants.ResourceGroupName, constants.EnvResourceGroup)
+	viper.BindEnv(constants.KeyVaultURL, constants.EnvKeyVaultURL)
+	viper.BindEnv(constants.Email, constants.EnvLegoEmail)
 
 	// Azure authentication environment variables for lego DNS provider
-	viper.BindEnv(constants.AzureClientID, "AZURE_CLIENT_ID")
-	viper.BindEnv(constants.AzureClientSecret, "AZURE_CLIENT_SECRET")
-	viper.BindEnv(constants.AzureTenantID, "AZURE_TENANT_ID")
-	viper.BindEnv(constants.AzureAuthMethod, "AZURE_AUTH_METHOD")
-	viper.BindEnv(constants.AzureAuthMsiTimeout, "AZURE_AUTH_MSI_TIMEOUT")
+	viper.BindEnv(constants.AzureClientID, legoAzure.EnvClientID)
+	viper.BindEnv(constants.AzureClientSecret, legoAzure.EnvClientSecret)
+	viper.BindEnv(constants.AzureTenantID, legoAzure.EnvTenantID)
+	viper.BindEnv(constants.AzureAuthMethod, legoAzure.EnvAuthMethod)
+	viper.BindEnv(constants.AzureAuthMsiTimeout, legoAzure.EnvAuthMSITimeout)
 
 	// Set defaults
 	viper.SetDefault(constants.Staging, true)
 	viper.SetDefault(constants.AzureAuthMethod, "")
 	viper.SetDefault(constants.AzureAuthMsiTimeout, "2s")
 	viper.SetDefault(constants.ExpireThreshold, 7)
-
-	// Initialize viper and configuration file
-	cobra.OnInitialize(initConfig)
-}
-
-func initConfig() {
-	viper.AddConfigPath(".")
-	viper.SetConfigName("config")
-
-	if configFile != "" {
-		viper.SetConfigFile(configFile)
-		utilities.LogVerbose("Config file set to: %s", configFile)
-	}
-
-	viper.AutomaticEnv()
-
-	if err := viper.ReadInConfig(); err == nil {
-		utilities.LogVerbose("Using config file: %s", viper.ConfigFileUsed())
-	} else {
-		utilities.LogVerbose("No config file found, relying on environment variables and flags")
-	}
 }

@@ -20,10 +20,11 @@ import (
 )
 
 var runCmd = &cobra.Command{
-	Use:   "run",
-	Short: "Run the SSL certificate provisioner",
-	Long:  `Scan Azure DNS zones and provision SSL certificates for records marked with ACME metadata.`,
-	Run:   runCmdRun,
+	Use:     "run",
+	Short:   "Run the SSL certificate provisioner",
+	Long:    `Scan Azure DNS zones and provision SSL certificates for records marked with ACME metadata.`,
+	Run:     runCmdRun,
+	PreRunE: runCmdPreRunE,
 }
 
 func runCmdSetup(cmd *cobra.Command) {
@@ -35,12 +36,32 @@ func runCmdSetup(cmd *cobra.Command) {
 	cmd.Flags().IntP(constants.ExpireThreshold, "t", 7, "Certificate expiration threshold in days")
 	cmd.Flags().StringP(constants.Email, "e", "", "Email address for ACME account registration (required)")
 
-	viper.BindPFlag(constants.Zones, runCmd.Flags().Lookup(constants.Zones))
-	viper.BindPFlag(constants.SubscriptionID, runCmd.Flags().Lookup(constants.SubscriptionID))
-	viper.BindPFlag(constants.ResourceGroupName, runCmd.Flags().Lookup(constants.ResourceGroupName))
-	viper.BindPFlag(constants.Staging, runCmd.Flags().Lookup(constants.Staging))
-	viper.BindPFlag(constants.ExpireThreshold, runCmd.Flags().Lookup(constants.ExpireThreshold))
-	viper.BindPFlag(constants.Email, runCmd.Flags().Lookup(constants.Email))
+	BindPFlag(cmd, constants.Zones)
+	BindPFlag(cmd, constants.SubscriptionID)
+	BindPFlag(cmd, constants.ResourceGroupName)
+	BindPFlag(cmd, constants.Staging)
+	BindPFlag(cmd, constants.ExpireThreshold)
+	BindPFlag(cmd, constants.Email)
+}
+
+func runCmdPreRunE(cmd *cobra.Command, args []string) error {
+	// Initialize configuration
+	config.InitConfig()
+
+	// Validate required parameters
+	if viper.GetString(constants.SubscriptionID) == "" {
+		log.Fatal("Subscription ID not specified")
+	}
+
+	if viper.GetString(constants.ResourceGroupName) == "" {
+		log.Fatal("Resource group name not specified")
+	}
+
+	if viper.GetString(constants.Email) == "" {
+		log.Fatal("Email address not specified")
+	}
+
+	return nil
 }
 
 // runCmdRun executes the main certificate provisioning logic
@@ -52,24 +73,6 @@ func runCmdRun(cmd *cobra.Command, args []string) {
 	resourceGroupName := viper.GetString(constants.ResourceGroupName)
 	staging := viper.GetBool(constants.Staging)
 	email := viper.GetString(constants.Email)
-
-	if subscriptionId == "" {
-		log.Fatalf("Subscription ID not specified.")
-	}
-
-	if resourceGroupName == "" {
-		log.Fatalf("Resource Group Name not specified.")
-	}
-
-	if email == "" {
-		log.Fatalf("Email address not specified.")
-	}
-
-	// Validate all required environment variables
-	// Validate required environment variables
-	if err := config.ValidateRequiredEnvVars(); err != nil {
-		log.Fatalf("Environment validation failed: %v", err)
-	}
 
 	vaultURL := viper.GetString(constants.KeyVaultURL)
 

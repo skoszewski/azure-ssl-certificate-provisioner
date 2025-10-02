@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"azure-ssl-certificate-provisioner/internal/types"
 	"azure-ssl-certificate-provisioner/internal/utilities"
 	"azure-ssl-certificate-provisioner/pkg/azure"
 	"azure-ssl-certificate-provisioner/pkg/constants"
@@ -27,16 +28,18 @@ func createSPCmdSetup(cmd *cobra.Command) {
 	cmd.Flags().String(constants.KeyVaultName, "", "Key Vault name for Certificates Officer role assignment")
 	cmd.Flags().String(constants.KeyVaultRG, "", "Resource group name for the Key Vault")
 	cmd.Flags().Bool(constants.NoRoles, false, "Disable all role assignments even if other role flags are specified")
+	cmd.Flags().Bool(constants.DryRun, false, "Output the service principal details without creating it")
 	cmd.Flags().Bool(constants.UseCertAuth, false, "Use certificate-based authentication (expects {client-id}.key and {client-id}.crt files)")
 	cmd.Flags().String(constants.Shell, utilities.GetDefaultShell(), "Shell type for output template (bash, powershell)")
 
 	viper.BindPFlag(constants.Name, createSPCmd.Flags().Lookup(constants.Name))
-	viper.BindPFlag(constants.AzureTenantID, createSPCmd.Flags().Lookup(constants.TenantID))
+	viper.BindPFlag(constants.TenantID, createSPCmd.Flags().Lookup(constants.TenantID))
 	viper.BindPFlag(constants.SubscriptionID, createSPCmd.Flags().Lookup(constants.SubscriptionID))
 	viper.BindPFlag(constants.ResourceGroupName, createSPCmd.Flags().Lookup(constants.ResourceGroupName))
 	viper.BindPFlag(constants.KeyVaultName, createSPCmd.Flags().Lookup(constants.KeyVaultName))
 	viper.BindPFlag(constants.KeyVaultRG, createSPCmd.Flags().Lookup(constants.KeyVaultRG))
 	viper.BindPFlag(constants.NoRoles, createSPCmd.Flags().Lookup(constants.NoRoles))
+	viper.BindPFlag(constants.DryRun, createSPCmd.Flags().Lookup(constants.DryRun))
 	viper.BindPFlag(constants.UseCertAuth, createSPCmd.Flags().Lookup(constants.UseCertAuth))
 	viper.BindPFlag(constants.Shell, createSPCmd.Flags().Lookup(constants.Shell))
 }
@@ -69,6 +72,10 @@ func createSPCmdRun(cmd *cobra.Command, args []string) {
 	useCertAuth := viper.GetBool(constants.UseCertAuth)
 	shell := viper.GetString(constants.Shell)
 
+	if resourceGroup != "" {
+		utilities.LogVerbose("DNS role assignment: resource_group=%s", resourceGroup)
+	}
+
 	// Automatically assign DNS role if resource group is provided (unless --no-roles is specified)
 	assignRole := resourceGroup != "" && !noRoles
 
@@ -94,20 +101,34 @@ func createSPCmdRun(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	utilities.LogDefault("Service principal creation started: %s", displayName)
+	var spInfo *types.ServicePrincipalInfo
+	if !viper.GetBool(constants.DryRun) {
+		utilities.LogDefault("Service principal creation started: %s", displayName)
 
-	// Create Azure clients
-	azureClients, err := azure.NewClients(subscriptionID, "https://dummy.vault.azure.net/") // Dummy URL since we don't need KV client here
-	if err != nil {
-		log.Fatalf("Failed to create Azure clients: %v", err)
+		// Create Azure clients
+		azureClients, err := azure.NewClients(subscriptionID, "https://dummy.vault.azure.net/") // Dummy URL since we don't need KV client here
+		if err != nil {
+			log.Fatalf("Failed to create Azure clients: %v", err)
+		}
+
+		spInfo, err = azureClients.CreateServicePrincipal(displayName, tenantID, subscriptionID, assignRole, resourceGroup, keyVaultName, keyVaultResourceGroup, noRoles, useCertAuth)
+		if err != nil {
+			log.Fatalf("Failed to create service principal: %v", err)
+		}
+
+		utilities.LogDefault("Service principal created: application_id=%s, client_id=%s, service_principal_id=%s", spInfo.ApplicationID, spInfo.ClientID, spInfo.ServicePrincipalID)
+	} else {
+		utilities.LogDefault("Dry run mode: service principal not created")
+		spInfo = &types.ServicePrincipalInfo{
+			ApplicationID:      "your-application-id",
+			ClientID:           "your-client-id",
+			ClientSecret:       "your-client-secret",
+			ServicePrincipalID: "your-service-principal-id",
+			SubscriptionID:     subscriptionID,
+			TenantID:           tenantID,
+			UseCertAuth:        useCertAuth,
+		}
 	}
-
-	spInfo, err := azureClients.CreateServicePrincipal(displayName, tenantID, subscriptionID, assignRole, resourceGroup, keyVaultName, keyVaultResourceGroup, noRoles, useCertAuth)
-	if err != nil {
-		log.Fatalf("Failed to create service principal: %v", err)
-	}
-
-	utilities.LogDefault("Service principal created: application_id=%s, client_id=%s, service_principal_id=%s", spInfo.ApplicationID, spInfo.ClientID, spInfo.ServicePrincipalID)
 
 	GenerateServicePrincipalTemplate(spInfo, shell, keyVaultName, keyVaultResourceGroup)
 }

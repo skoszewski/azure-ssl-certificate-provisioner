@@ -77,13 +77,13 @@ func generateEnvWithTemplate(shell, msiType string, spInfo *types.ServicePrincip
 	}
 
 	names := envTemplateKeyNames{
-		SubscriptionID:         constants.EnvAzureSubscriptionId,
+		SubscriptionID:         legoAzure.EnvSubscriptionID,
 		ResourceGroupName:      constants.EnvResourceGroup,
-		KeyVaultURL:            constants.EnvAzureKeyVaultURL,
+		KeyVaultURL:            constants.EnvKeyVaultURL,
 		Email:                  constants.EnvLegoEmail,
-		AzureClientID:          constants.EnvAzureClientId,
-		AzureClientSecret:      constants.EnvAzureClientSecret,
-		AzureTenantID:          constants.EnvAzureTenantId,
+		AzureClientID:          legoAzure.EnvClientID,
+		AzureClientSecret:      legoAzure.EnvClientSecret,
+		AzureTenantID:          legoAzure.EnvTenantID,
 		AzureAuthMethod:        legoAzure.EnvAuthMethod,
 		MSIType:                msiType,
 		MSITypeStr:             msiTypeStr,

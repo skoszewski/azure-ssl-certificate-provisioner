@@ -13,6 +13,7 @@ import (
 	"azure-ssl-certificate-provisioner/internal/utilities"
 	"azure-ssl-certificate-provisioner/internal/zones"
 	"azure-ssl-certificate-provisioner/pkg/azure"
+	"azure-ssl-certificate-provisioner/pkg/config"
 	"azure-ssl-certificate-provisioner/pkg/constants"
 )
 
@@ -30,23 +31,31 @@ func listCmdSetup(cmd *cobra.Command) {
 	cmd.Flags().StringP(constants.ResourceGroupName, "g", "", "Azure resource group name")
 	cmd.Flags().StringP(constants.KeyVaultURL, "k", "", "Key Vault URL where certificates are stored")
 
-	viper.BindPFlag(constants.Zones, cmd.Flags().Lookup(constants.Zones))
-	viper.BindPFlag(constants.SubscriptionID, cmd.Flags().Lookup(constants.SubscriptionID))
-	viper.BindPFlag(constants.ResourceGroupName, cmd.Flags().Lookup(constants.ResourceGroupName))
-	viper.BindPFlag(constants.KeyVaultURL, cmd.Flags().Lookup(constants.KeyVaultURL))
+	BindPFlag(cmd, constants.Zones)
+	BindPFlag(cmd, constants.SubscriptionID)
+	BindPFlag(cmd, constants.ResourceGroupName)
+	BindPFlag(cmd, constants.KeyVaultURL)
 }
 
 func listCmdPreRunE(cmd *cobra.Command, args []string) error {
+	// Initialize configuration
+	config.InitConfig()
+
+	// Validate required parameters
 	if viper.GetString(constants.SubscriptionID) == "" {
-		log.Fatal("Subscription ID not specified")
+		utilities.LogFatal("Subscription ID not specified")
 	}
 
 	if viper.GetString(constants.ResourceGroupName) == "" {
-		log.Fatal("Resource group name not specified")
+		utilities.LogFatal("Resource group name not specified")
 	}
 
 	if viper.GetString(constants.KeyVaultURL) == "" {
-		log.Fatalf("Azure Key Vault URL not specified")
+		utilities.LogFatal("Azure Key Vault URL not specified")
+	}
+
+	if viper.GetString(constants.Email) == "" {
+		utilities.LogFatal("Email address not specified")
 	}
 
 	return nil

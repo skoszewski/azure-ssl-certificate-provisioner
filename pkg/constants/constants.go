@@ -23,6 +23,7 @@ const (
 	KeyVaultName    = "kv-name"
 	KeyVaultRG      = "kv-resource-group"
 	NoRoles         = "no-roles"
+	DryRun          = "dry-run"
 	UseCertAuth     = "use-cert-auth"
 	PrivateKeyPath  = "private-key-path"
 	CertificatePath = "certificate-path"
@@ -44,12 +45,8 @@ const (
 	CommandName     = "azure-ssl-certificate-provisioner"
 
 	// Environment variable names
-	EnvAzureClientId       = "AZURE_CLIENT_ID"
-	EnvAzureClientSecret   = "AZURE_CLIENT_SECRET"
-	EnvAzureTenantId       = "AZURE_TENANT_ID"
-	EnvAzureSubscriptionId = "AZURE_SUBSCRIPTION_ID"
-	EnvResourceGroup       = "AZURE_RESOURCE_GROUP"
-	EnvAzureKeyVaultURL    = "AZURE_KEY_VAULT_URL"
-	EnvLegoEmail           = "LEGO_EMAIL"
-	EnvConfigFile          = "CONFIG_FILE"
+	EnvResourceGroup = "RESOURCE_GROUP"
+	EnvKeyVaultURL   = "KEY_VAULT_URL"
+	EnvLegoEmail     = "LEGO_EMAIL"
+	EnvConfigFile    = "CONFIG_FILE"
 )
