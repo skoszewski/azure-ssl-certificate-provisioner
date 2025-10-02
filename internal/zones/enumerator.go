@@ -15,26 +15,14 @@ import (
 // ProcessorFunc defines the function signature for processing FQDNs
 type ProcessorFunc func(ctx context.Context, fqdn string)
 
-// Enumerator handles DNS zone and record enumeration
-type Enumerator struct {
-	azureClients *azure.Clients
-}
-
-// NewEnumerator creates a new zones enumerator
-func NewEnumerator(azureClients *azure.Clients) *Enumerator {
-	return &Enumerator{
-		azureClients: azureClients,
-	}
-}
-
 // EnumerateAndProcess enumerates DNS zones and records, calling the processor function for each valid FQDN
-func (e *Enumerator) EnumerateAndProcess(ctx context.Context, processor ProcessorFunc) error {
+func EnumerateAndProcess(ctx context.Context, processor ProcessorFunc) error {
 
 	zones := viper.GetStringSlice(constants.Zones)
 	resourceGroupName := viper.GetString(constants.ResourceGroupName)
 
 	// Determine which zones to process
-	zonesToProcess, err := e.determineZonesToProcess(ctx, zones)
+	zonesToProcess, err := determineZonesToProcess(ctx, zones)
 	if err != nil {
 		return err
 	}
@@ -46,7 +34,7 @@ func (e *Enumerator) EnumerateAndProcess(ctx context.Context, processor Processo
 
 	// Process zones
 	for _, zone := range zonesToProcess {
-		if err := e.processZone(ctx, zone, processor); err != nil {
+		if err := processZone(ctx, zone, processor); err != nil {
 			log.Printf("Zone processing failed: zone=%s, error=%v", zone, err)
 			continue
 		}
@@ -56,14 +44,14 @@ func (e *Enumerator) EnumerateAndProcess(ctx context.Context, processor Processo
 }
 
 // determineZonesToProcess determines which zones to process based on input
-func (e *Enumerator) determineZonesToProcess(ctx context.Context, zones []string) ([]string, error) {
+func determineZonesToProcess(ctx context.Context, zones []string) ([]string, error) {
 	var zonesToProcess []string
 	resourceGroupName := viper.GetString(constants.ResourceGroupName)
 
 	if len(zones) == 0 {
 		// If no zones specified, get all zones from the resource group
 		log.Printf("No zones specified, scanning all DNS zones in resource group: %s", resourceGroupName)
-		zonesPager := e.azureClients.DNSZones.NewListByResourceGroupPager(resourceGroupName, nil)
+		zonesPager := azure.GetDnsZonesClient().NewListByResourceGroupPager(resourceGroupName, nil)
 
 		for zonesPager.More() {
 			zonesPage, err := zonesPager.NextPage(ctx)
@@ -89,10 +77,10 @@ func (e *Enumerator) determineZonesToProcess(ctx context.Context, zones []string
 }
 
 // processZone processes a single DNS zone
-func (e *Enumerator) processZone(ctx context.Context, zone string, processor ProcessorFunc) error {
+func processZone(ctx context.Context, zone string, processor ProcessorFunc) error {
 	log.Printf("Processing DNS zone: %s", zone)
 	resourceGroupName := viper.GetString(constants.ResourceGroupName)
-	pager := e.azureClients.DNS.NewListAllByDNSZonePager(resourceGroupName, zone, nil)
+	pager := azure.GetDnsClient().NewListAllByDNSZonePager(resourceGroupName, zone, nil)
 
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
@@ -107,7 +95,7 @@ func (e *Enumerator) processZone(ctx context.Context, zone string, processor Pro
 			}
 
 			// Check if this record should be processed
-			if !e.shouldProcessRecord(rs) {
+			if !shouldProcessRecord(rs) {
 				continue
 			}
 
@@ -123,7 +111,7 @@ func (e *Enumerator) processZone(ctx context.Context, zone string, processor Pro
 }
 
 // shouldProcessRecord determines if a DNS record should be processed
-func (e *Enumerator) shouldProcessRecord(rs *armdns.RecordSet) bool {
+func shouldProcessRecord(rs *armdns.RecordSet) bool {
 	if rs.Properties == nil || rs.Properties.Metadata == nil {
 		return false
 	}

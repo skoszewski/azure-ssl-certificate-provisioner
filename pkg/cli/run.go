@@ -77,7 +77,7 @@ func runCmdRun(cmd *cobra.Command, args []string) {
 	vaultURL := viper.GetString(constants.KeyVaultURL)
 
 	// Create Azure clients
-	azureClients, err := azure.NewClients(subscriptionId, vaultURL)
+	err := azure.NewClients(subscriptionId, vaultURL)
 	if err != nil {
 		log.Fatalf("Failed to create Azure clients: %v", err)
 	}
@@ -143,11 +143,10 @@ func runCmdRun(cmd *cobra.Command, args []string) {
 	}
 
 	// Create certificate handler
-	certHandler := certificate.NewHandler(acmeClient, azureClients.KVCert)
+	certHandler := certificate.NewHandler(acmeClient, azure.GetKeyVaultCertsClient())
 
 	// Create zones enumerator and process zones
-	enumerator := zones.NewEnumerator(azureClients)
-	if err := enumerator.EnumerateAndProcess(ctx, certHandler.ProcessFQDN); err != nil {
+	if err := zones.EnumerateAndProcess(ctx, certHandler.ProcessFQDN); err != nil {
 		log.Fatalf("Failed to enumerate and process zones: %v", err)
 	}
 }

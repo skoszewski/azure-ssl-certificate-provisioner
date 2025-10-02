@@ -71,21 +71,18 @@ func listCmdRun(cmd *cobra.Command, args []string) {
 	vaultURL := viper.GetString(constants.KeyVaultURL)
 
 	// Create Azure clients (no need for lego/ACME setup for listing)
-	azureClients, err := azure.NewClients(subscriptionId, vaultURL)
+	err := azure.NewClients(subscriptionId, vaultURL)
 	if err != nil {
 		log.Fatalf("Failed to create Azure clients: %v", err)
 	}
 
 	utilities.LogDefault("List mode started: subscription=%s, resource_group=%s, key_vault=%s", subscriptionId, resourceGroupName, vaultURL)
 
-	// Create zones enumerator and process zones with listing processor
-	enumerator := zones.NewEnumerator(azureClients)
-
 	listProcessor := &CertificateListProcessor{
-		kvClient: azureClients.KVCert,
+		kvClient: azure.GetKeyVaultCertsClient(),
 	}
 
-	if err := enumerator.EnumerateAndProcess(ctx, listProcessor.ProcessFQDN); err != nil {
+	if err := zones.EnumerateAndProcess(ctx, listProcessor.ProcessFQDN); err != nil {
 		log.Fatalf("Failed to enumerate and process zones: %v", err)
 	}
 

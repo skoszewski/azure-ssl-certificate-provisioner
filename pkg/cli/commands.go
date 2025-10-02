@@ -3,9 +3,6 @@ package cli
 import (
 	"os"
 
-	"azure-ssl-certificate-provisioner/pkg/constants"
-
-	legoAzure "github.com/go-acme/lego/v4/providers/dns/azuredns"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -49,23 +46,4 @@ func init() {
 	// configure delete the Service Principal command
 	deleteSPCmdSetup(deleteSPCmd)
 	rootCmd.AddCommand(deleteSPCmd)
-
-	// Bind Viper keys to environment variables
-	viper.BindEnv(constants.SubscriptionID, legoAzure.EnvSubscriptionID)
-	viper.BindEnv(constants.ResourceGroupName, constants.EnvResourceGroup)
-	viper.BindEnv(constants.KeyVaultURL, constants.EnvKeyVaultURL)
-	viper.BindEnv(constants.Email, constants.EnvLegoEmail)
-
-	// Azure authentication environment variables for lego DNS provider
-	viper.BindEnv(constants.AzureClientID, legoAzure.EnvClientID)
-	viper.BindEnv(constants.AzureClientSecret, legoAzure.EnvClientSecret)
-	viper.BindEnv(constants.AzureTenantID, legoAzure.EnvTenantID)
-	viper.BindEnv(constants.AzureAuthMethod, legoAzure.EnvAuthMethod)
-	viper.BindEnv(constants.AzureAuthMsiTimeout, legoAzure.EnvAuthMSITimeout)
-
-	// Set defaults
-	viper.SetDefault(constants.Staging, true)
-	viper.SetDefault(constants.AzureAuthMethod, "")
-	viper.SetDefault(constants.AzureAuthMsiTimeout, "2s")
-	viper.SetDefault(constants.ExpireThreshold, 7)
 }

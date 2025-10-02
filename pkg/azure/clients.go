@@ -29,56 +29,65 @@ import (
 	"azure-ssl-certificate-provisioner/internal/types"
 )
 
-// Clients holds Azure service clients
-type Clients struct {
-	DNS        *armdns.RecordSetsClient
-	DNSZones   *armdns.ZonesClient
-	KVCert     *azcertificates.Client
-	Credential *azidentity.DefaultAzureCredential
-	Graph      *msgraph.GraphServiceClient
+var (
+	dnsClient           *armdns.RecordSetsClient
+	dnsZonesClient      *armdns.ZonesClient
+	keyVaultCertsClient *azcertificates.Client
+	graphClient         *msgraph.GraphServiceClient
+	credential          *azidentity.DefaultAzureCredential
+)
+
+func GetDnsClient() *armdns.RecordSetsClient {
+	return dnsClient
+}
+
+func GetDnsZonesClient() *armdns.ZonesClient {
+	return dnsZonesClient
+}
+
+func GetKeyVaultCertsClient() *azcertificates.Client {
+	return keyVaultCertsClient
+}
+
+func GetGraphClient() *msgraph.GraphServiceClient {
+	return graphClient
 }
 
 // NewClients creates new Azure service clients
-func NewClients(subscriptionID, vaultURL string) (*Clients, error) {
-	cred, err := azidentity.NewDefaultAzureCredential(nil)
+func NewClients(subscriptionID, vaultURL string) error {
+	var err error
+	credential, err = azidentity.NewDefaultAzureCredential(nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to obtain Azure credential: %v", err)
+		return fmt.Errorf("failed to obtain Azure credential: %v", err)
 	}
 
-	dnsClient, err := armdns.NewRecordSetsClient(subscriptionID, cred, nil)
+	dnsClient, err = armdns.NewRecordSetsClient(subscriptionID, credential, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create DNS client: %v", err)
+		return fmt.Errorf("failed to create DNS client: %v", err)
 	}
 
-	dnsZonesClient, err := armdns.NewZonesClient(subscriptionID, cred, nil)
+	dnsZonesClient, err = armdns.NewZonesClient(subscriptionID, credential, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create DNS zones client: %v", err)
+		return fmt.Errorf("failed to create DNS zones client: %v", err)
 	}
 
-	kvCertClient, err := azcertificates.NewClient(vaultURL, cred, nil)
+	keyVaultCertsClient, err = azcertificates.NewClient(vaultURL, credential, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create Key Vault client: %v", err)
+		return fmt.Errorf("failed to create Key Vault client: %v", err)
 	}
 
 	// Request specific Graph API scopes for application management
-	graphClient, err := msgraph.NewGraphServiceClientWithCredentials(cred, []string{
-		"https://graph.microsoft.com/.default",
-	})
+	graphClient, err = msgraph.NewGraphServiceClientWithCredentials(credential, []string{"https://graph.microsoft.com/.default"})
+
 	if err != nil {
-		return nil, fmt.Errorf("failed to create Graph client: %v", err)
+		return fmt.Errorf("failed to create Graph client: %v", err)
 	}
 
-	return &Clients{
-		DNS:        dnsClient,
-		DNSZones:   dnsZonesClient,
-		KVCert:     kvCertClient,
-		Credential: cred,
-		Graph:      graphClient,
-	}, nil
+	return nil
 }
 
 // CreateServicePrincipal creates a new Azure AD application and service principal
-func (c *Clients) CreateServicePrincipal(displayName, tenantID, subscriptionID string, assignDNSRole bool, resourceGroupName, keyVaultName, keyVaultResourceGroup string, noRoles bool, useCertAuth bool) (*types.ServicePrincipalInfo, error) {
+func CreateServicePrincipal(displayName, tenantID, subscriptionID string, assignDNSRole bool, resourceGroupName, keyVaultName, keyVaultResourceGroup string, noRoles bool, useCertAuth bool) (*types.ServicePrincipalInfo, error) {
 	// Validate provided tenant and subscription IDs
 	if tenantID == "" {
 		return nil, fmt.Errorf("tenant ID is required")
@@ -98,7 +107,7 @@ func (c *Clients) CreateServicePrincipal(displayName, tenantID, subscriptionID s
 	application := models.NewApplication()
 	application.SetDisplayName(&displayName)
 
-	createdApp, err := c.Graph.Applications().Post(context.Background(), application, nil)
+	createdApp, err := graphClient.Applications().Post(context.Background(), application, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Azure AD application: %v", err)
 	}
@@ -114,7 +123,7 @@ func (c *Clients) CreateServicePrincipal(displayName, tenantID, subscriptionID s
 	servicePrincipal := models.NewServicePrincipal()
 	servicePrincipal.SetAppId(createdApp.GetAppId())
 
-	createdSP, err := c.Graph.ServicePrincipals().Post(context.Background(), servicePrincipal, nil)
+	createdSP, err := graphClient.ServicePrincipals().Post(context.Background(), servicePrincipal, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create service principal: %v", err)
 	}
@@ -133,7 +142,7 @@ func (c *Clients) CreateServicePrincipal(displayName, tenantID, subscriptionID s
 		spInfo.CertificatePath = certificatePath
 
 		// Use certificate-based authentication
-		err := c.setupCertificateAuth(spInfo.ApplicationID, privateKeyPath, certificatePath)
+		err := setupCertificateAuth(spInfo.ApplicationID, privateKeyPath, certificatePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to setup certificate authentication: %v", err)
 		}
@@ -147,7 +156,7 @@ func (c *Clients) CreateServicePrincipal(displayName, tenantID, subscriptionID s
 		addPasswordRequest := applications.NewItemAddPasswordPostRequestBody()
 		addPasswordRequest.SetPasswordCredential(passwordCredential)
 
-		secret, err := c.Graph.Applications().ByApplicationId(spInfo.ApplicationID).AddPassword().Post(context.Background(), addPasswordRequest, nil)
+		secret, err := graphClient.Applications().ByApplicationId(spInfo.ApplicationID).AddPassword().Post(context.Background(), addPasswordRequest, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create client secret: %v", err)
 		}
@@ -164,7 +173,7 @@ func (c *Clients) CreateServicePrincipal(displayName, tenantID, subscriptionID s
 	} else {
 		// Optionally assign DNS Zone Contributor role
 		if assignDNSRole && resourceGroupName != "" {
-			if err := c.assignDNSZoneContributorRole(spInfo, resourceGroupName); err != nil {
+			if err := assignDNSZoneContributorRole(spInfo, resourceGroupName); err != nil {
 				log.Printf("DNS Zone Contributor role assignment failed: resource_group=%s, error=%v", resourceGroupName, err)
 			} else {
 				log.Printf("DNS Zone Contributor role assigned: resource_group=%s", resourceGroupName)
@@ -173,7 +182,7 @@ func (c *Clients) CreateServicePrincipal(displayName, tenantID, subscriptionID s
 
 		// Optionally assign Key Vault Certificates Officer role
 		if keyVaultName != "" && keyVaultResourceGroup != "" {
-			if err := c.assignKeyVaultCertificatesOfficerRole(spInfo, keyVaultName, keyVaultResourceGroup); err != nil {
+			if err := assignKeyVaultCertificatesOfficerRole(spInfo, keyVaultName, keyVaultResourceGroup); err != nil {
 				log.Printf("Key Vault Certificates Officer role assignment failed: key_vault=%s, error=%v", keyVaultName, err)
 			} else {
 				log.Printf("Key Vault Certificates Officer role assigned: key_vault=%s", keyVaultName)
@@ -184,13 +193,13 @@ func (c *Clients) CreateServicePrincipal(displayName, tenantID, subscriptionID s
 	return spInfo, nil
 }
 
-func (c *Clients) assignDNSZoneContributorRole(spInfo *types.ServicePrincipalInfo, resourceGroupName string) error {
+func assignDNSZoneContributorRole(spInfo *types.ServicePrincipalInfo, resourceGroupName string) error {
 	clientOptions := &arm.ClientOptions{
 		ClientOptions: policy.ClientOptions{
 			APIVersion: "2022-04-01",
 		},
 	}
-	authClient, err := armauthorization.NewRoleAssignmentsClient(spInfo.SubscriptionID, c.Credential, clientOptions)
+	authClient, err := armauthorization.NewRoleAssignmentsClient(spInfo.SubscriptionID, credential, clientOptions)
 	if err != nil {
 		return fmt.Errorf("failed to create authorization client: %v", err)
 	}
@@ -244,13 +253,13 @@ func (c *Clients) assignDNSZoneContributorRole(spInfo *types.ServicePrincipalInf
 	return nil
 }
 
-func (c *Clients) assignKeyVaultCertificatesOfficerRole(spInfo *types.ServicePrincipalInfo, keyVaultName, keyVaultResourceGroup string) error {
+func assignKeyVaultCertificatesOfficerRole(spInfo *types.ServicePrincipalInfo, keyVaultName, keyVaultResourceGroup string) error {
 	clientOptions := &arm.ClientOptions{
 		ClientOptions: policy.ClientOptions{
 			APIVersion: "2022-04-01",
 		},
 	}
-	authClient, err := armauthorization.NewRoleAssignmentsClient(spInfo.SubscriptionID, c.Credential, clientOptions)
+	authClient, err := armauthorization.NewRoleAssignmentsClient(spInfo.SubscriptionID, credential, clientOptions)
 	if err != nil {
 		return fmt.Errorf("failed to create authorization client: %v", err)
 	}
@@ -305,22 +314,22 @@ func (c *Clients) assignKeyVaultCertificatesOfficerRole(spInfo *types.ServicePri
 }
 
 // setupCertificateAuth generates a self-signed certificate and configures certificate-based authentication
-func (c *Clients) setupCertificateAuth(applicationID, privateKeyPath, certificatePath string) error {
+func setupCertificateAuth(applicationID, privateKeyPath, certificatePath string) error {
 	// Generate self-signed certificate and private key
-	cert, privateKey, err := c.generateSelfSignedCertificate(applicationID)
+	cert, privateKey, err := generateSelfSignedCertificate(applicationID)
 	if err != nil {
 		return fmt.Errorf("failed to generate self-signed certificate: %v", err)
 	}
 
 	// Save private key to file
-	privateKeyPEM := c.encodePrivateKeyToPEM(privateKey)
+	privateKeyPEM := encodePrivateKeyToPEM(privateKey)
 	err = os.WriteFile(privateKeyPath, privateKeyPEM, 0600)
 	if err != nil {
 		return fmt.Errorf("failed to write private key file: %v", err)
 	}
 
 	// Save certificate to file
-	certPEM := c.encodeCertificateToPEM(cert)
+	certPEM := encodeCertificateToPEM(cert)
 	err = os.WriteFile(certificatePath, certPEM, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to write certificate file: %v", err)
@@ -356,7 +365,7 @@ func (c *Clients) setupCertificateAuth(applicationID, privateKeyPath, certificat
 	time.Sleep(2 * time.Second)
 
 	// Try to update the application's keyCredentials directly instead of using AddKey
-	existingApp, err := c.Graph.Applications().ByApplicationId(applicationID).Get(context.Background(), nil)
+	existingApp, err := graphClient.Applications().ByApplicationId(applicationID).Get(context.Background(), nil)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve application for certificate update (appId: %s): %v", applicationID, err)
 	}
@@ -372,7 +381,7 @@ func (c *Clients) setupCertificateAuth(applicationID, privateKeyPath, certificat
 	updateApp := models.NewApplication()
 	updateApp.SetKeyCredentials(updatedKeyCreds)
 
-	_, err = c.Graph.Applications().ByApplicationId(applicationID).Patch(context.Background(), updateApp, nil)
+	_, err = graphClient.Applications().ByApplicationId(applicationID).Patch(context.Background(), updateApp, nil)
 	if err != nil {
 		return fmt.Errorf("failed to upload certificate to Azure AD application (appId: %s): %v", applicationID, err)
 	}
@@ -383,7 +392,7 @@ func (c *Clients) setupCertificateAuth(applicationID, privateKeyPath, certificat
 }
 
 // generateSelfSignedCertificate generates a self-signed certificate and private key
-func (c *Clients) generateSelfSignedCertificate(applicationID string) (*x509.Certificate, *rsa.PrivateKey, error) {
+func generateSelfSignedCertificate(applicationID string) (*x509.Certificate, *rsa.PrivateKey, error) {
 	// Generate RSA private key
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -421,7 +430,7 @@ func (c *Clients) generateSelfSignedCertificate(applicationID string) (*x509.Cer
 
 // DeleteServicePrincipalByClientID deletes an Azure AD application and service principal by client ID
 // It also removes all associated role assignments
-func (c *Clients) DeleteServicePrincipalByClientID(clientID, subscriptionID, tenantID string) error {
+func DeleteServicePrincipalByClientID(clientID, subscriptionID, tenantID string) error {
 	ctx := context.Background()
 
 	// Find the application by client ID
@@ -429,7 +438,7 @@ func (c *Clients) DeleteServicePrincipalByClientID(clientID, subscriptionID, ten
 
 	// Get application directly by client ID using filter
 	filter := fmt.Sprintf("appId eq '%s'", clientID)
-	apps, err := c.Graph.Applications().Get(ctx, &applications.ApplicationsRequestBuilderGetRequestConfiguration{
+	apps, err := graphClient.Applications().Get(ctx, &applications.ApplicationsRequestBuilderGetRequestConfiguration{
 		QueryParameters: &applications.ApplicationsRequestBuilderGetQueryParameters{
 			Filter: &filter,
 		},
@@ -452,7 +461,7 @@ func (c *Clients) DeleteServicePrincipalByClientID(clientID, subscriptionID, ten
 
 	// Find the service principal associated with the application using filter
 	spFilter := fmt.Sprintf("appId eq '%s'", clientID)
-	servicePrincipalsResult, err := c.Graph.ServicePrincipals().Get(ctx, &serviceprincipals.ServicePrincipalsRequestBuilderGetRequestConfiguration{
+	servicePrincipalsResult, err := graphClient.ServicePrincipals().Get(ctx, &serviceprincipals.ServicePrincipalsRequestBuilderGetRequestConfiguration{
 		QueryParameters: &serviceprincipals.ServicePrincipalsRequestBuilderGetQueryParameters{
 			Filter: &spFilter,
 		},
@@ -472,13 +481,13 @@ func (c *Clients) DeleteServicePrincipalByClientID(clientID, subscriptionID, ten
 		log.Printf("Found service principal: %s", servicePrincipalID)
 
 		// Remove role assignments before deleting the service principal
-		if err := c.removeRoleAssignments(servicePrincipalID, subscriptionID); err != nil {
+		if err := removeRoleAssignments(servicePrincipalID, subscriptionID); err != nil {
 			log.Printf("Warning: Failed to remove some role assignments: %v", err)
 		}
 
 		// Delete the service principal
 		log.Printf("Deleting service principal...")
-		err = c.Graph.ServicePrincipals().ByServicePrincipalId(servicePrincipalID).Delete(ctx, nil)
+		err = graphClient.ServicePrincipals().ByServicePrincipalId(servicePrincipalID).Delete(ctx, nil)
 		if err != nil {
 			return fmt.Errorf("failed to delete service principal: %v", err)
 		}
@@ -489,20 +498,20 @@ func (c *Clients) DeleteServicePrincipalByClientID(clientID, subscriptionID, ten
 
 	// Delete the application
 	log.Printf("Deleting Azure AD application...")
-	err = c.Graph.Applications().ByApplicationId(applicationID).Delete(ctx, nil)
+	err = graphClient.Applications().ByApplicationId(applicationID).Delete(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to delete Azure AD application: %v", err)
 	}
 	log.Printf("Azure AD application deleted successfully")
 
 	// Clean up local certificate files
-	c.cleanupCertificateFiles(clientID)
+	cleanupCertificateFiles(clientID)
 
 	return nil
 }
 
 // removeRoleAssignments removes all role assignments for a service principal
-func (c *Clients) removeRoleAssignments(servicePrincipalID, subscriptionID string) error {
+func removeRoleAssignments(servicePrincipalID, subscriptionID string) error {
 	if subscriptionID == "" {
 		return fmt.Errorf("subscription ID is required for role assignment operations")
 	}
@@ -514,7 +523,7 @@ func (c *Clients) removeRoleAssignments(servicePrincipalID, subscriptionID strin
 			APIVersion: "2022-04-01",
 		},
 	}
-	authClient, err := armauthorization.NewRoleAssignmentsClient(subscriptionID, c.Credential, clientOptions)
+	authClient, err := armauthorization.NewRoleAssignmentsClient(subscriptionID, credential, clientOptions)
 	if err != nil {
 		return fmt.Errorf("failed to create authorization client: %v", err)
 	}
@@ -568,7 +577,7 @@ func (c *Clients) removeRoleAssignments(servicePrincipalID, subscriptionID strin
 }
 
 // cleanupCertificateFiles removes local certificate files for the given client ID
-func (c *Clients) cleanupCertificateFiles(clientID string) {
+func cleanupCertificateFiles(clientID string) {
 	privateKeyPath := fmt.Sprintf("%s.key", clientID)
 	certificatePath := fmt.Sprintf("%s.crt", clientID)
 
@@ -592,7 +601,7 @@ func (c *Clients) cleanupCertificateFiles(clientID string) {
 }
 
 // encodePrivateKeyToPEM encodes a private key to PEM format
-func (c *Clients) encodePrivateKeyToPEM(privateKey *rsa.PrivateKey) []byte {
+func encodePrivateKeyToPEM(privateKey *rsa.PrivateKey) []byte {
 	privateKeyDER := x509.MarshalPKCS1PrivateKey(privateKey)
 	privateKeyPEM := pem.EncodeToMemory(&pem.Block{
 		Type:  "RSA PRIVATE KEY",
@@ -602,7 +611,7 @@ func (c *Clients) encodePrivateKeyToPEM(privateKey *rsa.PrivateKey) []byte {
 }
 
 // encodeCertificateToPEM encodes a certificate to PEM format
-func (c *Clients) encodeCertificateToPEM(cert *x509.Certificate) []byte {
+func encodeCertificateToPEM(cert *x509.Certificate) []byte {
 	certPEM := pem.EncodeToMemory(&pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: cert.Raw,

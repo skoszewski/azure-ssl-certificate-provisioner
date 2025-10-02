@@ -106,12 +106,12 @@ func createSPCmdRun(cmd *cobra.Command, args []string) {
 		utilities.LogDefault("Service principal creation started: %s", displayName)
 
 		// Create Azure clients
-		azureClients, err := azure.NewClients(subscriptionID, "https://dummy.vault.azure.net/") // Dummy URL since we don't need KV client here
+		err := azure.NewClients(subscriptionID, "https://dummy.vault.azure.net/") // Dummy URL since we don't need KV client here
 		if err != nil {
 			log.Fatalf("Failed to create Azure clients: %v", err)
 		}
 
-		spInfo, err = azureClients.CreateServicePrincipal(displayName, tenantID, subscriptionID, assignRole, resourceGroup, keyVaultName, keyVaultResourceGroup, noRoles, useCertAuth)
+		spInfo, err = azure.CreateServicePrincipal(displayName, tenantID, subscriptionID, assignRole, resourceGroup, keyVaultName, keyVaultResourceGroup, noRoles, useCertAuth)
 		if err != nil {
 			log.Fatalf("Failed to create service principal: %v", err)
 		}
