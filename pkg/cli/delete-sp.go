@@ -11,9 +11,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"azure-ssl-certificate-provisioner/internal/utilities"
 	"azure-ssl-certificate-provisioner/pkg/azure"
 	"azure-ssl-certificate-provisioner/pkg/constants"
+	utilities "azure-ssl-certificate-provisioner/pkg/utils"
 )
 
 var deleteSPCmd = &cobra.Command{

@@ -7,8 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"azure-ssl-certificate-provisioner/internal/utilities"
 	"azure-ssl-certificate-provisioner/pkg/constants"
+	utilities "azure-ssl-certificate-provisioner/pkg/utils"
 )
 
 var envCmd = &cobra.Command{

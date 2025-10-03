@@ -5,8 +5,8 @@ import (
 
 	"github.com/spf13/viper"
 
-	"azure-ssl-certificate-provisioner/internal/utilities"
 	"azure-ssl-certificate-provisioner/pkg/constants"
+	utilities "azure-ssl-certificate-provisioner/pkg/utils"
 
 	legoAzure "github.com/go-acme/lego/v4/providers/dns/azuredns"
 )

@@ -10,13 +10,13 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"azure-ssl-certificate-provisioner/internal/utilities"
-	"azure-ssl-certificate-provisioner/internal/zones"
 	"azure-ssl-certificate-provisioner/pkg/acme"
 	"azure-ssl-certificate-provisioner/pkg/azure"
 	"azure-ssl-certificate-provisioner/pkg/certificate"
 	"azure-ssl-certificate-provisioner/pkg/config"
 	"azure-ssl-certificate-provisioner/pkg/constants"
+	utilities "azure-ssl-certificate-provisioner/pkg/utils"
+	"azure-ssl-certificate-provisioner/pkg/zones"
 )
 
 var runCmd = &cobra.Command{

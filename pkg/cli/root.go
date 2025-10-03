@@ -1,8 +1,8 @@
 package cli
 
 import (
-	"azure-ssl-certificate-provisioner/internal/utilities"
 	"azure-ssl-certificate-provisioner/pkg/constants"
+	utilities "azure-ssl-certificate-provisioner/pkg/utils"
 	"fmt"
 
 	"github.com/spf13/cobra"
