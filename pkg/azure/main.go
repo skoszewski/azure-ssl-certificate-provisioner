@@ -115,7 +115,7 @@ func GetAuthClient() *armauthorization.RoleAssignmentsClient {
 			},
 		}
 
-		authClient, err = armauthorization.NewRoleAssignmentsClient(subscriptionID, credential, clientOptions)
+		authClient, err = armauthorization.NewRoleAssignmentsClient(subscriptionID, GetCredential(), clientOptions)
 		if err != nil {
 			log.Fatalf("failed to create authorization client: %v", err)
 		}
