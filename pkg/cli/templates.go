@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"azure-ssl-certificate-provisioner/internal/types"
 	"azure-ssl-certificate-provisioner/pkg/constants"
 	"bytes"
 	"embed"
@@ -37,7 +38,7 @@ type envTemplateKeyNames struct {
 //go:embed templates/env/*.tmpl
 var envTemplates embed.FS
 
-func getValueOrPlaceholder(key, placeholder string, spInfo *ServicePrincipalInfo, force bool) string {
+func getValueOrPlaceholder(key, placeholder string, spInfo *types.ServicePrincipalInfo, force bool) string {
 	// Always return placeholder if force is true
 	if force {
 		return placeholder
@@ -53,7 +54,7 @@ func getValueOrPlaceholder(key, placeholder string, spInfo *ServicePrincipalInfo
 	return spInfo.GetValue(key)
 }
 
-func generateEnvWithTemplate(shell, msiType string, spInfo *ServicePrincipalInfo, force bool) {
+func generateEnvWithTemplate(shell, msiType string, spInfo *types.ServicePrincipalInfo, force bool) {
 	envTemplate, err := envTemplates.ReadFile(fmt.Sprintf("templates/env/%s.tmpl", strings.ToLower(shell)))
 	if err != nil {
 		log.Fatalf("Error (internal) reading environment template: %v", err)

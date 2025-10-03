@@ -21,6 +21,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"azure-ssl-certificate-provisioner/internal/types"
 	"azure-ssl-certificate-provisioner/internal/utilities"
 	"azure-ssl-certificate-provisioner/pkg/azure"
 	"azure-ssl-certificate-provisioner/pkg/constants"
@@ -93,37 +94,8 @@ func createSPCmdRun(cmd *cobra.Command, args []string) {
 	utilities.LogDefault("Service principal created: application_id=%s, client_id=%s, service_principal_id=%s", spInfo.ApplicationID, spInfo.ClientID, spInfo.ServicePrincipalID)
 }
 
-// ServicePrincipalInfo contains Azure service principal information
-type ServicePrincipalInfo struct {
-	TenantID           string
-	ClientID           string
-	ClientSecret       string
-	UseCertAuth        bool
-	PrivateKeyPath     string
-	CertificatePath    string
-	ApplicationID      string
-	ServicePrincipalID string
-}
-
-func (sp *ServicePrincipalInfo) GetValue(key string) string {
-	switch key {
-	case constants.TenantID:
-		return sp.TenantID
-	case constants.AzureClientID:
-		return sp.ClientID
-	case constants.AzureClientSecret:
-		return sp.ClientSecret
-	case constants.PrivateKeyPath:
-		return sp.PrivateKeyPath
-	case constants.CertificatePath:
-		return sp.CertificatePath
-	default:
-		return viper.GetString(key)
-	}
-}
-
 // CreateServicePrincipal creates a new Azure AD application and service principal
-func CreateServicePrincipal(displayName string, tenantID string) (*ServicePrincipalInfo, error) {
+func CreateServicePrincipal(displayName string, tenantID string) (*types.ServicePrincipalInfo, error) {
 	if displayName == "" {
 		return nil, fmt.Errorf("display name is required")
 	}
@@ -133,7 +105,7 @@ func CreateServicePrincipal(displayName string, tenantID string) (*ServicePrinci
 	}
 
 	// Create the service principal info struct
-	spInfo := &ServicePrincipalInfo{
+	spInfo := &types.ServicePrincipalInfo{
 		TenantID:    tenantID,
 		UseCertAuth: viper.GetBool(constants.UseCertAuth),
 	}
@@ -233,7 +205,7 @@ func CreateServicePrincipal(displayName string, tenantID string) (*ServicePrinci
 	return spInfo, nil
 }
 
-func assignDNSZoneContributorRole(spInfo *ServicePrincipalInfo, subscriptionID string, resourceGroupName string) error {
+func assignDNSZoneContributorRole(spInfo *types.ServicePrincipalInfo, subscriptionID string, resourceGroupName string) error {
 	// DNS Zone Contributor role ID
 	dnsZoneContributorRoleID := "/subscriptions/" + subscriptionID + "/providers/Microsoft.Authorization/roleDefinitions/" + DNSZoneContributorRoleID
 
@@ -283,7 +255,7 @@ func assignDNSZoneContributorRole(spInfo *ServicePrincipalInfo, subscriptionID s
 	return nil
 }
 
-func assignKeyVaultCertificatesOfficerRole(spInfo *ServicePrincipalInfo, subscriptionID string, keyVaultName, keyVaultResourceGroup string) error {
+func assignKeyVaultCertificatesOfficerRole(spInfo *types.ServicePrincipalInfo, subscriptionID string, keyVaultName, keyVaultResourceGroup string) error {
 	// Key Vault Certificates Officer role ID
 	keyVaultCertificatesOfficerRoleID := "/subscriptions/" + subscriptionID + "/providers/Microsoft.Authorization/roleDefinitions/" + KeyVaultCertificatesOfficerRoleID
 
