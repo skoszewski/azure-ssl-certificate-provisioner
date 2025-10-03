@@ -1,7 +1,9 @@
 package utilities
 
 import (
+	"fmt"
 	"log"
+	"os"
 )
 
 // Verbose holds the global verbose flag
@@ -35,5 +37,28 @@ func LogFatal(format string, args ...any) {
 func LogVerbose(format string, args ...any) {
 	if Verbose {
 		log.Printf(format, args...)
+	}
+}
+
+func PrintDefault(format string, args ...any) {
+	fmt.Printf(format, args...)
+}
+
+func PrintWarning(format string, args ...any) {
+	fmt.Printf("Warning: "+format, args...)
+}
+
+func PrintError(format string, args ...any) {
+	fmt.Printf("Error: "+format, args...)
+}
+
+func PrintFatal(format string, args ...any) {
+	fmt.Printf("Fatal: "+format, args...)
+	os.Exit(1)
+}
+
+func PrintVerbose(format string, args ...any) {
+	if Verbose {
+		fmt.Printf(format, args...)
 	}
 }
