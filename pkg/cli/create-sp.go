@@ -80,18 +80,18 @@ func createSPCmdRun(cmd *cobra.Command, args []string) {
 	tenantID := viper.GetString(constants.TenantID)
 
 	if viper.GetBool(constants.DryRun) {
-		utils.LogDefault("Dry run mode: service principal not created")
+		utils.PrintDefault("Dry run mode: service principal not created")
 		return
 	}
 
-	utils.LogDefault("Service principal creation started: %s", displayName)
+	utils.PrintDefault("Service principal creation started: %s", displayName)
 
 	spInfo, err := CreateServicePrincipal(displayName, tenantID)
 	if err != nil {
 		log.Fatalf("Failed to create service principal: %v", err)
 	}
 
-	utils.LogDefault("Service principal created: application_id=%s, client_id=%s, service_principal_id=%s", spInfo.ApplicationID, spInfo.ClientID, spInfo.ServicePrincipalID)
+	utils.PrintDefault("Service principal created: application_id=%s, client_id=%s, service_principal_id=%s", spInfo.ApplicationID, spInfo.ClientID, spInfo.ServicePrincipalID)
 }
 
 // CreateServicePrincipal creates a new Azure AD application and service principal
