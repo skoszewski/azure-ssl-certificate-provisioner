@@ -32,17 +32,40 @@ const (
 	KeyVaultCertificatesOfficerRoleID = "a4417e6f-fecd-4de8-b567-7b0420556985"
 )
 
+var servicePrincipalCmd = &cobra.Command{
+	Use:     "service-principal",
+	Aliases: []string{"sp"},
+	Short:   "Manage Azure service principals",
+	Long:    `Create and delete Azure AD applications and service principals with optional role assignments.`,
+	PreRunE: servicePrincipalCmdPreRunE,
+}
+
+func servicePrincipalCmdSetup(cmd *cobra.Command) {
+	cmd.PersistentFlags().StringP(constants.Name, "n", "", "Display name for the Azure AD application (required)")
+	cmd.PersistentFlags().StringP(constants.TenantID, "t", "", "Azure tenant ID (required)")
+}
+
+func servicePrincipalCmdPreRunE(cmd *cobra.Command, args []string) error {
+	if viper.GetString(constants.Name) == "" {
+		log.Fatalf("Display name is required. Use --%s flag.", constants.Name)
+	}
+
+	if viper.GetString(constants.TenantID) == "" {
+		log.Fatalf("Tenant ID is required. Use --%s flag.", constants.TenantID)
+	}
+
+	return nil
+}
+
 var createSPCmd = &cobra.Command{
-	Use:     "create-sp",
+	Use:     "new",
+	Aliases: []string{"create"},
 	Short:   "Create Azure service principal for SSL certificate provisioning",
 	Long:    `Create an Azure AD application and service principal with optional role assignments for DNS and Key Vault access.`,
 	Run:     createSPCmdRun,
-	PreRunE: createSPCmdPreRunE,
 }
 
 func createSPCmdSetup(cmd *cobra.Command) {
-	cmd.Flags().StringP(constants.Name, "n", "", "Display name for the Azure AD application (required)")
-	cmd.Flags().StringP(constants.TenantID, "t", "", "Azure tenant ID (required)")
 	cmd.Flags().StringP(constants.SubscriptionID, "s", "", "Azure subscription ID (required)")
 	cmd.Flags().StringP(constants.ResourceGroupName, "g", "", "Resource group name for DNS Zone Contributor role assignment")
 	cmd.Flags().String(constants.KeyVaultName, "", "Key Vault name for Certificates Officer role assignment")
@@ -60,18 +83,6 @@ func createSPCmdSetup(cmd *cobra.Command) {
 	viper.BindPFlag(constants.DryRun, createSPCmd.Flags().Lookup(constants.DryRun))
 	viper.BindPFlag(constants.UseCertAuth, createSPCmd.Flags().Lookup(constants.UseCertAuth))
 	viper.BindPFlag(constants.Shell, createSPCmd.Flags().Lookup(constants.Shell))
-}
-
-func createSPCmdPreRunE(cmd *cobra.Command, args []string) error {
-	if viper.GetString(constants.Name) == "" {
-		log.Fatalf("Display name is required. Use --%s flag.", constants.Name)
-	}
-
-	if viper.GetString(constants.TenantID) == "" {
-		log.Fatalf("Tenant ID is required. Use --%s flag.", constants.TenantID)
-	}
-
-	return nil
 }
 
 // createSPCmdRun executes the service principal creation logic

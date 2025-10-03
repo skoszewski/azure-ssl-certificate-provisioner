@@ -17,8 +17,9 @@ import (
 )
 
 var deleteSPCmd = &cobra.Command{
-	Use:   "delete-sp",
-	Short: "Delete Azure AD Application and Service Principal with role cleanup",
+	Use:     "delete",
+	Aliases: []string{"remove", "del", "rm"},
+	Short:   "Delete Azure AD Application and Service Principal with role cleanup",
 	Long: `Delete an Azure AD Application and Service Principal by client ID.
 This command will:
 1. Find the application and service principal by client ID

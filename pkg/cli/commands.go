@@ -22,6 +22,7 @@ func BindPFlag(cmd *cobra.Command, key string) {
 func init() {
 	// configure root command
 	rootSetup(rootCmd)
+	rootCmd.AddCommand(servicePrincipalCmd)
 
 	// configure config command
 	configSetup(configCmd)
@@ -39,11 +40,14 @@ func init() {
 	runCmdSetup(runCmd)
 	rootCmd.AddCommand(runCmd)
 
-	// configure create a Service Principal command
-	createSPCmdSetup(createSPCmd)
-	rootCmd.AddCommand(createSPCmd)
+	// configure the Service Principal management command
+	servicePrincipalCmdSetup(servicePrincipalCmd)
 
-	// configure delete the Service Principal command
+	// configure the Service Principal new command
+	createSPCmdSetup(createSPCmd)
+	servicePrincipalCmd.AddCommand(createSPCmd)
+
+	// configure the Service Principal delete command
 	deleteSPCmdSetup(deleteSPCmd)
-	rootCmd.AddCommand(deleteSPCmd)
+	servicePrincipalCmd.AddCommand(deleteSPCmd)
 }
