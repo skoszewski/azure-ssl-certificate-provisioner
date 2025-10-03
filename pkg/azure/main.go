@@ -2,7 +2,9 @@ package azure
 
 import (
 	"azure-ssl-certificate-provisioner/pkg/constants"
+	"context"
 	"log"
+	"os"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
@@ -10,6 +12,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/keyvault/azcertificates"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dns/armdns"
+	legoAzure "github.com/go-acme/lego/v4/providers/dns/azuredns"
 	msgraph "github.com/microsoftgraph/msgraph-sdk-go"
 	"github.com/spf13/viper"
 )
@@ -24,11 +27,47 @@ var (
 	err                 error
 )
 
+var authEnvMap = map[string]string{
+	constants.AzureTenantID:     legoAzure.EnvTenantID,
+	constants.AzureClientID:     legoAzure.EnvClientID,
+	constants.AzureClientSecret: legoAzure.EnvClientSecret,
+}
+
 func GetCredential() *azidentity.DefaultAzureCredential {
 	if credential == nil {
+		// Set environment variables from viper if they are not already set
+		// This allows using config file or flags to set auth parameters
+		// but still allows env vars to override them if set
+		// The azidentity.DefaultAzureCredential will use these env vars
+		// if they are set, so we need to ensure they are set before creating the credential
+		// but we don't want to override existing env vars
+		// This is useful for CI/CD scenarios where secrets are injected as env vars
+		// and should take precedence over config file or flags
+		// Note: This approach assumes that if one of the auth params is set via env var,
+		// the others are also set via env vars. Mixing methods is not supported.
+		for viperKey, envVar := range authEnvMap {
+			if os.Getenv(envVar) == "" && viper.GetString(viperKey) != "" {
+				if err := os.Setenv(envVar, viper.GetString(viperKey)); err != nil {
+					log.Fatalf("failed to set environment variable %s: %v", envVar, err)
+				}
+			}
+		}
+
 		credential, err = azidentity.NewDefaultAzureCredential(nil)
 		if err != nil {
 			log.Fatalf("failed to obtain a credential: %v", err)
+		}
+
+		// Get a token to verify the credential works
+		_, err = credential.GetToken(
+			context.Background(),
+			policy.TokenRequestOptions{
+				Scopes: []string{"https://management.azure.com/.default"},
+			},
+		)
+
+		if err != nil {
+			log.Fatalf("Authentication failed, check your Azure credentials and permissions: %v", err)
 		}
 	}
 

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -27,6 +28,12 @@ type Config struct {
 
 var configFile string
 
+func logIfNotEmpty(key, value string) {
+	if value != "" {
+		utils.LogVerbose("%s: %s", key, value)
+	}
+}
+
 func InitConfig() {
 	viper.AddConfigPath(".")
 	viper.SetConfigName("config")
@@ -48,27 +55,25 @@ func InitConfig() {
 	} else {
 		// Display loaded configuration for debugging
 		utils.LogVerbose("Configuration loaded successfully.")
-		utils.LogVerbose("Subscription ID: %s", cfg.SubscriptionID)
-		utils.LogVerbose("Resource Group: %s", cfg.ResourceGroup)
-		utils.LogVerbose("Key Vault URL: %s", cfg.KeyVaultURL)
-		utils.LogVerbose("Email: %s", cfg.Email)
+		logIfNotEmpty("Subscription ID", cfg.SubscriptionID)
+		logIfNotEmpty("Resource Group", cfg.ResourceGroup)
+		logIfNotEmpty("Key Vault URL", cfg.KeyVaultURL)
+		logIfNotEmpty("Email", cfg.Email)
 		stagingStr := "Production"
 		if cfg.Staging {
 			stagingStr = "Staging"
 		}
-		utils.LogVerbose("ACME environment: %s", stagingStr)
-		utils.LogVerbose("Expire Threshold: %d days", cfg.ExpireThreshold)
-		utils.LogVerbose("Azure Tenant ID: %s", cfg.AzureTenantID)
-		utils.LogVerbose("Azure Client ID: %s", cfg.AzureClientID)
+		logIfNotEmpty("ACME environment", stagingStr)
+		logIfNotEmpty("Expire Threshold", fmt.Sprintf("%d days", cfg.ExpireThreshold))
+		logIfNotEmpty("Azure Tenant ID", cfg.AzureTenantID)
+		logIfNotEmpty("Azure Client ID", cfg.AzureClientID)
 		if cfg.AzureClientSecret != "" {
-			utils.LogVerbose("Azure Client Secret: [REDACTED]")
-		} else {
-			utils.LogVerbose("Azure Client Secret: not set")
+			logIfNotEmpty("Azure Client Secret", "[REDACTED]")
 		}
 		if len(cfg.Zones) > 0 {
-			utils.LogVerbose("DNS Zones: %s", strings.Join(cfg.Zones, ", "))
+			logIfNotEmpty("DNS Zones", strings.Join(cfg.Zones, ", "))
 		} else {
-			utils.LogVerbose("DNS Zones: none specified")
+			logIfNotEmpty("DNS Zones", "none specified")
 		}
 	}
 }
