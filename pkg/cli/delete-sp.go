@@ -13,7 +13,7 @@ import (
 
 	"azure-ssl-certificate-provisioner/pkg/azure"
 	"azure-ssl-certificate-provisioner/pkg/constants"
-	utilities "azure-ssl-certificate-provisioner/pkg/utils"
+	"azure-ssl-certificate-provisioner/pkg/utils"
 )
 
 var deleteSPCmd = &cobra.Command{
@@ -68,10 +68,10 @@ func deleteSPCmdRun(cmd *cobra.Command, args []string) {
 	clientID := viper.GetString(constants.ClientID)
 	subscriptionID := viper.GetString(constants.SubscriptionID)
 
-	utilities.PrintDefault("Service principal deletion started: %s", clientID)
+	utils.PrintDefault("Service principal deletion started: %s", clientID)
 
 	// Find the application by client ID
-	utilities.PrintDefault("Looking for Azure AD Application with client ID: '%s'", clientID)
+	utils.PrintDefault("Looking for Azure AD Application with client ID: '%s'", clientID)
 
 	// Get application directly by client ID using filter
 	filter := fmt.Sprintf("appId eq '%s'", clientID)
@@ -82,19 +82,19 @@ func deleteSPCmdRun(cmd *cobra.Command, args []string) {
 	})
 
 	if err != nil {
-		utilities.PrintFatal("failed to search for an application by client ID: %v", err)
+		utils.PrintFatal("failed to search for an application by client ID: %v", err)
 	}
 
 	app := collection.GetValue()
 
 	if len(app) != 1 {
 		// If no application found or more than one found, log fatal error
-		utilities.PrintFatal("no application found with client ID or there are more than one: '%s'", clientID)
+		utils.PrintFatal("no application found with client ID or there are more than one: '%s'", clientID)
 	}
 
 	applicationID := *app[0].GetId()
 
-	utilities.PrintDefault("Found application: %s (Client ID: %s)", applicationID, clientID)
+	utils.PrintDefault("Found application: %s (Client ID: %s)", applicationID, clientID)
 
 	// Find the service principal associated with the application using filter
 	spFilter := fmt.Sprintf("appId eq '%s'", clientID)
@@ -107,44 +107,44 @@ func deleteSPCmdRun(cmd *cobra.Command, args []string) {
 	var spID string
 	if err != nil {
 		// If error occurs while getting service principal, log an error and continue
-		utilities.PrintError("failed to search for a service principal by client ID: %v", err)
+		utils.PrintError("failed to search for a service principal by client ID: %v", err)
 	} else {
 		sp := spCollection.GetValue()
 
 		// If exactly one service principal found, proceed to delete
 		if len(sp) != 1 {
-			utilities.PrintError("no service principal found with client ID or there are more than one: '%s'", clientID)
+			utils.PrintError("no service principal found with client ID or there are more than one: '%s'", clientID)
 		} else {
 			spID = *sp[0].GetId()
 
 			if spID != "" {
-				utilities.PrintDefault("Found service principal: %s", spID)
+				utils.PrintDefault("Found service principal: %s", spID)
 
 				// Remove role assignments before deleting the service principal
 				if err := removeRoleAssignments(spID, subscriptionID); err != nil {
-					utilities.PrintError("Warning: Failed to remove some role assignments: %v", err)
+					utils.PrintError("Warning: Failed to remove some role assignments: %v", err)
 				}
 
 				// Delete the service principal
-				utilities.PrintDefault("Deleting service principal...")
+				utils.PrintDefault("Deleting service principal...")
 				err = azure.GetGraphClient().ServicePrincipals().ByServicePrincipalId(spID).Delete(ctx, nil)
 				if err != nil {
-					utilities.PrintFatal("failed to delete service principal: %v", err)
+					utils.PrintFatal("failed to delete service principal: %v", err)
 				}
-				utilities.PrintDefault("Service principal deleted successfully")
+				utils.PrintDefault("Service principal deleted successfully")
 			} else {
-				utilities.PrintWarning("No service principal found for application: %s", clientID)
+				utils.PrintWarning("No service principal found for application: %s", clientID)
 			}
 		}
 	}
 
 	// Delete the application
-	utilities.PrintDefault("Deleting Azure AD application...")
+	utils.PrintDefault("Deleting Azure AD application...")
 	err = azure.GetGraphClient().Applications().ByApplicationId(applicationID).Delete(ctx, nil)
 	if err != nil {
-		utilities.PrintError("failed to delete Azure AD application: %v", err)
+		utils.PrintError("failed to delete Azure AD application: %v", err)
 	} else {
-		utilities.PrintDefault("Azure AD application deleted successfully")
+		utils.PrintDefault("Azure AD application deleted successfully")
 	}
 
 	// Clean up local certificate files
@@ -154,22 +154,22 @@ func deleteSPCmdRun(cmd *cobra.Command, args []string) {
 	// Remove private key file
 	if err := os.Remove(privateKeyPath); err != nil {
 		if !os.IsNotExist(err) {
-			utilities.PrintWarning("Warning: Could not remove private key file %s: %v", privateKeyPath, err)
+			utils.PrintWarning("Warning: Could not remove private key file %s: %v", privateKeyPath, err)
 		}
 	} else {
-		utilities.PrintDefault("Removed local certificate file: %s", privateKeyPath)
+		utils.PrintDefault("Removed local certificate file: %s", privateKeyPath)
 	}
 
 	// Remove certificate file
 	if err := os.Remove(certificatePath); err != nil {
 		if !os.IsNotExist(err) {
-			utilities.PrintWarning("Warning: Could not remove certificate file %s: %v", certificatePath, err)
+			utils.PrintWarning("Warning: Could not remove certificate file %s: %v", certificatePath, err)
 		}
 	} else {
-		utilities.PrintDefault("Removed local certificate file: %s", certificatePath)
+		utils.PrintDefault("Removed local certificate file: %s", certificatePath)
 	}
 
-	utilities.PrintDefault("Service principal and application deleted successfully: %s", clientID)
+	utils.PrintDefault("Service principal and application deleted successfully: %s", clientID)
 }
 
 // removeRoleAssignments removes all role assignments for a service principal
@@ -178,7 +178,7 @@ func removeRoleAssignments(servicePrincipalID, subscriptionID string) error {
 		return fmt.Errorf("subscription ID is required for role assignment operations")
 	}
 
-	utilities.PrintDefault("Removing role assignments for service principal %s in subscription %s", servicePrincipalID, subscriptionID)
+	utils.PrintDefault("Removing role assignments for service principal %s in subscription %s", servicePrincipalID, subscriptionID)
 
 	// List all role assignments for the subscription with filter by principal ID
 	filter := fmt.Sprintf("principalId eq '%s'", servicePrincipalID)
@@ -207,7 +207,7 @@ func removeRoleAssignments(servicePrincipalID, subscriptionID string) error {
 						Name:  *assignment.Name,
 						Scope: *assignment.Properties.Scope,
 					})
-					utilities.PrintDefault("Found role assignment to remove: %s at scope: %s", *assignment.Name, *assignment.Properties.Scope)
+					utils.PrintDefault("Found role assignment to remove: %s at scope: %s", *assignment.Name, *assignment.Properties.Scope)
 				}
 			}
 		}
@@ -217,9 +217,9 @@ func removeRoleAssignments(servicePrincipalID, subscriptionID string) error {
 	for _, assignment := range roleAssignmentsToDelete {
 		_, err := azure.GetAuthClient().Delete(context.Background(), assignment.Scope, assignment.Name, nil)
 		if err != nil {
-			utilities.PrintWarning("Failed to delete role assignment %s at scope %s: %v", assignment.Name, assignment.Scope, err)
+			utils.PrintWarning("Failed to delete role assignment %s at scope %s: %v", assignment.Name, assignment.Scope, err)
 		} else {
-			utilities.PrintDefault("Role assignment removed: %s at scope: %s", assignment.Name, assignment.Scope)
+			utils.PrintDefault("Role assignment removed: %s at scope: %s", assignment.Name, assignment.Scope)
 		}
 	}
 

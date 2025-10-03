@@ -2,7 +2,7 @@ package cli
 
 import (
 	"azure-ssl-certificate-provisioner/pkg/constants"
-	utilities "azure-ssl-certificate-provisioner/pkg/utils"
+	"azure-ssl-certificate-provisioner/pkg/utils"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -22,7 +22,7 @@ storing them in Azure Key Vault.`,
 }
 
 func rootSetup(cmd *cobra.Command) {
-	cmd.PersistentFlags().BoolVarP(utilities.GetVerbosePtr(), constants.Verbose, "v", false, "Enable verbose output")
+	cmd.PersistentFlags().BoolVarP(utils.GetVerbosePtr(), constants.Verbose, "v", false, "Enable verbose output")
 	cmd.PersistentFlags().StringVar(&configFile, constants.ConfigFile, "", fmt.Sprintf("Config file (default is %s.%s in the current directory)", constants.ConfigFile, constants.YAML))
 
 	viper.BindPFlag(constants.ConfigFile, cmd.Flags().Lookup(constants.ConfigFile))

@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/viper"
 
 	"azure-ssl-certificate-provisioner/pkg/constants"
-	utilities "azure-ssl-certificate-provisioner/pkg/utils"
+	"azure-ssl-certificate-provisioner/pkg/utils"
 
 	legoAzure "github.com/go-acme/lego/v4/providers/dns/azuredns"
 )
@@ -33,42 +33,42 @@ func InitConfig() {
 
 	if configFile != "" {
 		viper.SetConfigFile(configFile)
-		utilities.LogVerbose("Config file set to: %s", configFile)
+		utils.LogVerbose("Config file set to: %s", configFile)
 	}
 
 	if err := viper.ReadInConfig(); err == nil {
-		utilities.LogVerbose("Using config file: %s", viper.ConfigFileUsed())
+		utils.LogVerbose("Using config file: %s", viper.ConfigFileUsed())
 	} else {
-		utilities.LogVerbose("No config file found, relying on environment variables and flags")
+		utils.LogVerbose("No config file found, relying on environment variables and flags")
 	}
 
 	var cfg Config
 	if err := viper.Unmarshal(&cfg); err != nil {
-		utilities.LogDefault("Failed to parse configuration: %v", err)
+		utils.LogDefault("Failed to parse configuration: %v", err)
 	} else {
 		// Display loaded configuration for debugging
-		utilities.LogVerbose("Configuration loaded successfully.")
-		utilities.LogVerbose("Subscription ID: %s", cfg.SubscriptionID)
-		utilities.LogVerbose("Resource Group: %s", cfg.ResourceGroup)
-		utilities.LogVerbose("Key Vault URL: %s", cfg.KeyVaultURL)
-		utilities.LogVerbose("Email: %s", cfg.Email)
+		utils.LogVerbose("Configuration loaded successfully.")
+		utils.LogVerbose("Subscription ID: %s", cfg.SubscriptionID)
+		utils.LogVerbose("Resource Group: %s", cfg.ResourceGroup)
+		utils.LogVerbose("Key Vault URL: %s", cfg.KeyVaultURL)
+		utils.LogVerbose("Email: %s", cfg.Email)
 		stagingStr := "Production"
 		if cfg.Staging {
 			stagingStr = "Staging"
 		}
-		utilities.LogVerbose("ACME environment: %s", stagingStr)
-		utilities.LogVerbose("Expire Threshold: %d days", cfg.ExpireThreshold)
-		utilities.LogVerbose("Azure Tenant ID: %s", cfg.AzureTenantID)
-		utilities.LogVerbose("Azure Client ID: %s", cfg.AzureClientID)
+		utils.LogVerbose("ACME environment: %s", stagingStr)
+		utils.LogVerbose("Expire Threshold: %d days", cfg.ExpireThreshold)
+		utils.LogVerbose("Azure Tenant ID: %s", cfg.AzureTenantID)
+		utils.LogVerbose("Azure Client ID: %s", cfg.AzureClientID)
 		if cfg.AzureClientSecret != "" {
-			utilities.LogVerbose("Azure Client Secret: [REDACTED]")
+			utils.LogVerbose("Azure Client Secret: [REDACTED]")
 		} else {
-			utilities.LogVerbose("Azure Client Secret: not set")
+			utils.LogVerbose("Azure Client Secret: not set")
 		}
 		if len(cfg.Zones) > 0 {
-			utilities.LogVerbose("DNS Zones: %s", strings.Join(cfg.Zones, ", "))
+			utils.LogVerbose("DNS Zones: %s", strings.Join(cfg.Zones, ", "))
 		} else {
-			utilities.LogVerbose("DNS Zones: none specified")
+			utils.LogVerbose("DNS Zones: none specified")
 		}
 	}
 }

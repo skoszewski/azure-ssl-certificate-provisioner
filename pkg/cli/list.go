@@ -13,7 +13,7 @@ import (
 	"azure-ssl-certificate-provisioner/pkg/azure"
 	"azure-ssl-certificate-provisioner/pkg/config"
 	"azure-ssl-certificate-provisioner/pkg/constants"
-	utilities "azure-ssl-certificate-provisioner/pkg/utils"
+	"azure-ssl-certificate-provisioner/pkg/utils"
 	"azure-ssl-certificate-provisioner/pkg/zones"
 )
 
@@ -43,19 +43,19 @@ func listCmdPreRunE(cmd *cobra.Command, args []string) error {
 
 	// Validate required parameters
 	if viper.GetString(constants.SubscriptionID) == "" {
-		utilities.LogFatal("Subscription ID not specified")
+		utils.LogFatal("Subscription ID not specified")
 	}
 
 	if viper.GetString(constants.ResourceGroupName) == "" {
-		utilities.LogFatal("Resource group name not specified")
+		utils.LogFatal("Resource group name not specified")
 	}
 
 	if viper.GetString(constants.KeyVaultURL) == "" {
-		utilities.LogFatal("Azure Key Vault URL not specified")
+		utils.LogFatal("Azure Key Vault URL not specified")
 	}
 
 	if viper.GetString(constants.Email) == "" {
-		utilities.LogFatal("Email address not specified")
+		utils.LogFatal("Email address not specified")
 	}
 
 	return nil
@@ -70,7 +70,7 @@ func listCmdRun(cmd *cobra.Command, args []string) {
 	resourceGroupName := viper.GetString(constants.ResourceGroupName)
 	vaultURL := viper.GetString(constants.KeyVaultURL)
 
-	utilities.LogDefault("List mode started: subscription=%s, resource_group=%s, key_vault=%s", subscriptionId, resourceGroupName, vaultURL)
+	utils.LogDefault("List mode started: subscription=%s, resource_group=%s, key_vault=%s", subscriptionId, resourceGroupName, vaultURL)
 
 	listProcessor := &CertificateListProcessor{
 		kvClient: azure.GetKeyVaultCertsClient(),
@@ -98,13 +98,13 @@ func (p *CertificateListProcessor) ProcessFQDN(ctx context.Context, fqdn string)
 	p.totalRecords++
 
 	certName := "cert-" + strings.ReplaceAll(fqdn, ".", "-")
-	utilities.LogDefault("DNS record found and marked for ACME processing")
-	utilities.LogDefault("Checking certificate: %s", certName)
+	utils.LogDefault("DNS record found and marked for ACME processing")
+	utils.LogDefault("Checking certificate: %s", certName)
 
 	// Check certificate status in Key Vault
 	resp, err := p.kvClient.GetCertificate(ctx, certName, "", nil)
 	if err != nil {
-		utilities.LogDefault("Certificate not found in Key Vault")
+		utils.LogDefault("Certificate not found in Key Vault")
 		p.missingCerts++
 		return
 	}
@@ -115,14 +115,14 @@ func (p *CertificateListProcessor) ProcessFQDN(ctx context.Context, fqdn string)
 		daysLeft = int(time.Until(*resp.Attributes.Expires).Hours() / 24)
 
 		if daysLeft > 0 {
-			utilities.LogDefault("Certificate valid for %d days", daysLeft)
+			utils.LogDefault("Certificate valid for %d days", daysLeft)
 			p.validCerts++
 		} else {
-			utilities.LogDefault("Certificate expired")
+			utils.LogDefault("Certificate expired")
 			p.expiredCerts++
 		}
 	} else {
-		utilities.LogDefault("Certificate found but expiration date unavailable")
+		utils.LogDefault("Certificate found but expiration date unavailable")
 		p.missingCerts++
 	}
 }
@@ -135,6 +135,6 @@ func (p *CertificateListProcessor) PrintSummary() {
 	} else {
 		needsAction = ", action_needed=false"
 	}
-	utilities.LogDefault("Summary: total_records=%d, valid_certs=%d, expired_certs=%d, missing_certs=%d%s",
+	utils.LogDefault("Summary: total_records=%d, valid_certs=%d, expired_certs=%d, missing_certs=%d%s",
 		p.totalRecords, p.validCerts, p.expiredCerts, p.missingCerts, needsAction)
 }

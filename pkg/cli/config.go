@@ -2,7 +2,7 @@ package cli
 
 import (
 	"azure-ssl-certificate-provisioner/pkg/constants"
-	utilities "azure-ssl-certificate-provisioner/pkg/utils"
+	"azure-ssl-certificate-provisioner/pkg/utils"
 	"fmt"
 	"strings"
 
@@ -22,7 +22,7 @@ For environment variables, use: %s`, strings.Join(availableConfigFormats, ", "),
 
 func configRun(cmd *cobra.Command, args []string) {
 	format, _ := cmd.Flags().GetString(constants.Format)
-	utilities.LogVerbose("The chosen format is %v", format)
+	utils.LogVerbose("The chosen format is %v", format)
 
 	switch format {
 	case constants.JSON:

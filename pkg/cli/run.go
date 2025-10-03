@@ -15,7 +15,7 @@ import (
 	"azure-ssl-certificate-provisioner/pkg/certificate"
 	"azure-ssl-certificate-provisioner/pkg/config"
 	"azure-ssl-certificate-provisioner/pkg/constants"
-	utilities "azure-ssl-certificate-provisioner/pkg/utils"
+	"azure-ssl-certificate-provisioner/pkg/utils"
 	"azure-ssl-certificate-provisioner/pkg/zones"
 )
 
@@ -78,10 +78,10 @@ func runCmdRun(cmd *cobra.Command, args []string) {
 	var serverURL string
 	if staging {
 		serverURL = "https://acme-staging-v02.api.letsencrypt.org/directory"
-		utilities.LogDefault("ACME environment: staging")
+		utils.LogDefault("ACME environment: staging")
 	} else {
 		serverURL = "https://acme-v02.api.letsencrypt.org/directory"
-		utilities.LogDefault("ACME environment: production")
+		utils.LogDefault("ACME environment: production")
 	}
 
 	// Load or create ACME account with persistence
@@ -126,12 +126,12 @@ func runCmdRun(cmd *cobra.Command, args []string) {
 
 		// Save the account data for future runs
 		if err := acme.SaveAccountData(user, serverURL); err != nil {
-			utilities.LogDefault("ACME account save failed: %v", err)
+			utils.LogDefault("ACME account save failed: %v", err)
 		} else {
-			utilities.LogDefault("ACME account saved successfully")
+			utils.LogDefault("ACME account saved successfully")
 		}
 	} else {
-		utilities.LogDefault("ACME account loaded: %s", user.Email)
+		utils.LogDefault("ACME account loaded: %s", user.Email)
 	}
 
 	// Create certificate handler
@@ -157,7 +157,7 @@ func setAzureDNSEnvironment(subscriptionID, resourceGroup string) error {
 	authMethod := viper.GetString(constants.AzureAuthMethod)
 	if authMethod != "" {
 		os.Setenv(legoAzure.EnvAuthMethod, authMethod)
-		utilities.LogDefault("Azure DNS authentication method: %s", authMethod)
+		utils.LogDefault("Azure DNS authentication method: %s", authMethod)
 	}
 
 	// Set MSI timeout if specified

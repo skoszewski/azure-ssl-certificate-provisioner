@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"azure-ssl-certificate-provisioner/pkg/constants"
-	utilities "azure-ssl-certificate-provisioner/pkg/utils"
+	"azure-ssl-certificate-provisioner/pkg/utils"
 )
 
 var envCmd = &cobra.Command{
@@ -42,7 +42,7 @@ func envRun(cmd *cobra.Command, args []string) {
 
 	// Use OS-appropriate shell if no subcommand is specified
 	if chosenShell == "" {
-		chosenShell = utilities.GetDefaultShell()
+		chosenShell = utils.GetDefaultShell()
 	}
 
 	generateEnvWithTemplate(chosenShell, msiType, nil, true)

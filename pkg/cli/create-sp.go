@@ -24,7 +24,7 @@ import (
 	"azure-ssl-certificate-provisioner/pkg/azure"
 	"azure-ssl-certificate-provisioner/pkg/constants"
 	"azure-ssl-certificate-provisioner/pkg/types"
-	utilities "azure-ssl-certificate-provisioner/pkg/utils"
+	"azure-ssl-certificate-provisioner/pkg/utils"
 )
 
 const (
@@ -49,7 +49,7 @@ func createSPCmdSetup(cmd *cobra.Command) {
 	cmd.Flags().String(constants.KeyVaultRG, "", "Resource group name for the Key Vault")
 	cmd.Flags().Bool(constants.DryRun, false, "Output the service principal details without creating it")
 	cmd.Flags().Bool(constants.UseCertAuth, false, "Use certificate-based authentication (expects {client-id}.key and {client-id}.crt files)")
-	cmd.Flags().String(constants.Shell, utilities.GetDefaultShell(), "Shell type for output template (bash, powershell)")
+	cmd.Flags().String(constants.Shell, utils.GetDefaultShell(), "Shell type for output template (bash, powershell)")
 
 	viper.BindPFlag(constants.Name, createSPCmd.Flags().Lookup(constants.Name))
 	viper.BindPFlag(constants.TenantID, createSPCmd.Flags().Lookup(constants.TenantID))
@@ -80,18 +80,18 @@ func createSPCmdRun(cmd *cobra.Command, args []string) {
 	tenantID := viper.GetString(constants.TenantID)
 
 	if viper.GetBool(constants.DryRun) {
-		utilities.LogDefault("Dry run mode: service principal not created")
+		utils.LogDefault("Dry run mode: service principal not created")
 		return
 	}
 
-	utilities.LogDefault("Service principal creation started: %s", displayName)
+	utils.LogDefault("Service principal creation started: %s", displayName)
 
 	spInfo, err := CreateServicePrincipal(displayName, tenantID)
 	if err != nil {
 		log.Fatalf("Failed to create service principal: %v", err)
 	}
 
-	utilities.LogDefault("Service principal created: application_id=%s, client_id=%s, service_principal_id=%s", spInfo.ApplicationID, spInfo.ClientID, spInfo.ServicePrincipalID)
+	utils.LogDefault("Service principal created: application_id=%s, client_id=%s, service_principal_id=%s", spInfo.ApplicationID, spInfo.ClientID, spInfo.ServicePrincipalID)
 }
 
 // CreateServicePrincipal creates a new Azure AD application and service principal
