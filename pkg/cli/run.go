@@ -6,73 +6,25 @@ import (
 	"os"
 
 	"github.com/go-acme/lego/v4/lego"
-	legoAzure "github.com/go-acme/lego/v4/providers/dns/azuredns"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
+	"github.com/go-acme/lego/v4/platform/config/env"
+	"github.com/go-acme/lego/v4/providers/dns/azuredns"
 
 	"azure-ssl-certificate-provisioner/pkg/acme"
 	"azure-ssl-certificate-provisioner/pkg/azure"
 	"azure-ssl-certificate-provisioner/pkg/certificate"
-	"azure-ssl-certificate-provisioner/pkg/config"
-	"azure-ssl-certificate-provisioner/pkg/constants"
 	"azure-ssl-certificate-provisioner/pkg/utils"
 	"azure-ssl-certificate-provisioner/pkg/zones"
 )
 
-var runCmd = &cobra.Command{
-	Use:     "run",
-	Short:   "Run the SSL certificate provisioner",
-	Long:    `Scan Azure DNS zones and provision SSL certificates for records marked with ACME metadata.`,
-	Run:     runCmdRun,
-	PreRunE: runCmdPreRunE,
-}
-
-func runCmdSetup(cmd *cobra.Command) {
-	// Configure flags for run command
-	cmd.Flags().StringSliceP(constants.Zones, "z", nil, "DNS zone(s) to search for records (can be used multiple times). If omitted, all zones in the resource group will be scanned")
-	cmd.Flags().StringP(constants.SubscriptionID, "s", "", "Azure subscription ID")
-	cmd.Flags().StringP(constants.ResourceGroupName, "g", "", "Azure resource group name")
-	cmd.Flags().Bool(constants.Staging, true, "Use Let's Encrypt staging environment")
-	cmd.Flags().IntP(constants.ExpireThreshold, "t", 7, "Certificate expiration threshold in days")
-	cmd.Flags().StringP(constants.Email, "e", "", "Email address for ACME account registration (required)")
-
-	BindPFlag(cmd, constants.Zones)
-	BindPFlag(cmd, constants.SubscriptionID)
-	BindPFlag(cmd, constants.ResourceGroupName)
-	BindPFlag(cmd, constants.Staging)
-	BindPFlag(cmd, constants.ExpireThreshold)
-	BindPFlag(cmd, constants.Email)
-}
-
-func runCmdPreRunE(cmd *cobra.Command, args []string) error {
-	// Initialize configuration
-	config.InitConfig()
-
-	// Validate required parameters
-	if viper.GetString(constants.SubscriptionID) == "" {
-		log.Fatal("Subscription ID not specified")
-	}
-
-	if viper.GetString(constants.ResourceGroupName) == "" {
-		log.Fatal("Resource group name not specified")
-	}
-
-	if viper.GetString(constants.Email) == "" {
-		log.Fatal("Email address not specified")
-	}
-
-	return nil
-}
-
 // runCmdRun executes the main certificate provisioning logic
-func runCmdRun(cmd *cobra.Command, args []string) {
+func Run() {
 	ctx := context.Background()
 
 	// Get configuration values
-	subscriptionId := viper.GetString(constants.SubscriptionID)
-	resourceGroupName := viper.GetString(constants.ResourceGroupName)
-	staging := viper.GetBool(constants.Staging)
-	email := viper.GetString(constants.Email)
+	subscriptionId := env.GetOrFile(azuredns.EnvSubscriptionID)
+	resourceGroupName := env.GetOrFile(azuredns.EnvResourceGroup)
+	staging := env.GetOrFile("STAGING") == "true"
+	email := env.GetOrFile("LEGO_EMAIL")
 
 	// Configure ACME server based on staging flag
 	var serverURL string
@@ -109,7 +61,7 @@ func runCmdRun(cmd *cobra.Command, args []string) {
 	}
 
 	// Create Azure DNS provider - it will automatically detect the authentication method
-	provider, err := legoAzure.NewDNSProvider()
+	provider, err := azuredns.NewDNSProvider()
 	if err != nil {
 		log.Fatalf("failed to initialise Azure DNS provider: %v", err)
 	}
@@ -147,23 +99,22 @@ func runCmdRun(cmd *cobra.Command, args []string) {
 func setAzureDNSEnvironment(subscriptionID, resourceGroup string) error {
 	// Set required environment variables for the azuredns provider
 	if subscriptionID != "" {
-		os.Setenv(legoAzure.EnvSubscriptionID, subscriptionID)
+		os.Setenv(azuredns.EnvSubscriptionID, subscriptionID)
 	}
 	if resourceGroup != "" {
-		os.Setenv(legoAzure.EnvResourceGroup, resourceGroup)
+		os.Setenv(azuredns.EnvResourceGroup, resourceGroup)
 	}
 
-	// Set auth method if specified via viper
-	authMethod := viper.GetString(constants.AzureAuthMethod)
+	authMethod := env.GetOrFile(azuredns.EnvAuthMethod)
 	if authMethod != "" {
-		os.Setenv(legoAzure.EnvAuthMethod, authMethod)
+		os.Setenv(azuredns.EnvAuthMethod, authMethod)
 		utils.LogDefault("Azure DNS authentication method: %s", authMethod)
 	}
 
 	// Set MSI timeout if specified
-	msiTimeout := viper.GetString(constants.AzureAuthMsiTimeout)
+	msiTimeout := env.GetOrFile(azuredns.EnvAuthMSITimeout)
 	if msiTimeout != "" {
-		os.Setenv(legoAzure.EnvAuthMSITimeout, msiTimeout)
+		os.Setenv(azuredns.EnvAuthMSITimeout, msiTimeout)
 	}
 
 	return nil

@@ -1,10 +1,8 @@
 package azure
 
 import (
-	"azure-ssl-certificate-provisioner/pkg/constants"
 	"context"
 	"log"
-	"os"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
@@ -12,9 +10,9 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/keyvault/azcertificates"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dns/armdns"
-	legoAzure "github.com/go-acme/lego/v4/providers/dns/azuredns"
+	"github.com/go-acme/lego/v4/platform/config/env"
+	"github.com/go-acme/lego/v4/providers/dns/azuredns"
 	msgraph "github.com/microsoftgraph/msgraph-sdk-go"
-	"github.com/spf13/viper"
 )
 
 var (
@@ -27,34 +25,8 @@ var (
 	err                 error
 )
 
-// As of time of writing (2025-10-03) the lego azuredns provided does not support
-// authentication using a client certificate, only client secret or managed identity.
-var authEnvMap = map[string]string{
-	constants.AzureTenantID:     legoAzure.EnvTenantID,
-	constants.AzureClientID:     legoAzure.EnvClientID,
-	constants.AzureClientSecret: legoAzure.EnvClientSecret,
-}
-
 func GetCredential() *azidentity.DefaultAzureCredential {
 	if credential == nil {
-		// Set environment variables from viper if they are not already set
-		// This allows using config file or flags to set auth parameters
-		// but still allows env vars to override them if set
-		// The azidentity.DefaultAzureCredential will use these env vars
-		// if they are set, so we need to ensure they are set before creating the credential
-		// but we don't want to override existing env vars
-		// This is useful for CI/CD scenarios where secrets are injected as env vars
-		// and should take precedence over config file or flags
-		// Note: This approach assumes that if one of the auth params is set via env var,
-		// the others are also set via env vars. Mixing methods is not supported.
-		for viperKey, envVar := range authEnvMap {
-			if os.Getenv(envVar) == "" && viper.GetString(viperKey) != "" {
-				if err := os.Setenv(envVar, viper.GetString(viperKey)); err != nil {
-					log.Fatalf("failed to set environment variable %s: %v", envVar, err)
-				}
-			}
-		}
-
 		credential, err = azidentity.NewDefaultAzureCredential(nil)
 		if err != nil {
 			log.Fatalf("failed to obtain a credential: %v", err)
@@ -90,7 +62,7 @@ func GetGraphClient() *msgraph.GraphServiceClient {
 
 func GetDnsClient() *armdns.RecordSetsClient {
 	if dnsClient == nil {
-		subscriptionID := viper.GetString(constants.SubscriptionID)
+		subscriptionID := env.GetOrFile(azuredns.EnvSubscriptionID)
 
 		if subscriptionID == "" {
 			log.Fatalf("Subscription ID is required to initialize DNS client.")
@@ -106,7 +78,7 @@ func GetDnsClient() *armdns.RecordSetsClient {
 
 func GetDnsZonesClient() *armdns.ZonesClient {
 	if dnsZonesClient == nil {
-		subscriptionID := viper.GetString(constants.SubscriptionID)
+		subscriptionID := env.GetOrFile(azuredns.EnvSubscriptionID)
 
 		if subscriptionID == "" {
 			log.Fatalf("Subscription ID is required to initialize DNS Zones client.")
@@ -122,8 +94,8 @@ func GetDnsZonesClient() *armdns.ZonesClient {
 
 func GetKeyVaultCertsClient() *azcertificates.Client {
 	if keyVaultCertsClient == nil {
-		vaultName := viper.GetString(constants.KeyVaultName)
-		vaultURL := viper.GetString(constants.KeyVaultURL)
+		vaultName := env.GetOrFile("AZURE_KEY_VAULT_NAME")
+		vaultURL := env.GetOrFile("AZURE_KEY_VAULT_URL")
 
 		if vaultName == "" && vaultURL == "" {
 			log.Fatalf("Key Vault name or URL is required to initialize Key Vault Certificates client.")
@@ -143,7 +115,7 @@ func GetKeyVaultCertsClient() *azcertificates.Client {
 
 func GetAuthClient() *armauthorization.RoleAssignmentsClient {
 	if authClient == nil {
-		subscriptionID := viper.GetString(constants.SubscriptionID)
+		subscriptionID := env.GetOrFile(azuredns.EnvSubscriptionID)
 
 		if subscriptionID == "" {
 			log.Fatalf("Subscription ID is required to initialize Authorization client.")

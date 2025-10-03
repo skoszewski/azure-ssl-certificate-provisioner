@@ -6,69 +6,24 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-acme/lego/v4/platform/config/env"
+	"github.com/go-acme/lego/v4/providers/dns/azuredns"
+
 	"github.com/Azure/azure-sdk-for-go/sdk/keyvault/azcertificates"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	"azure-ssl-certificate-provisioner/pkg/azure"
-	"azure-ssl-certificate-provisioner/pkg/config"
-	"azure-ssl-certificate-provisioner/pkg/constants"
 	"azure-ssl-certificate-provisioner/pkg/utils"
 	"azure-ssl-certificate-provisioner/pkg/zones"
 )
 
-var listCmd = &cobra.Command{
-	Use:     "list",
-	Short:   "List DNS records and certificate status",
-	Long:    `Scan Azure DNS zones and list records that would be processed, along with their certificate status from Key Vault.`,
-	Run:     listCmdRun,
-	PreRunE: listCmdPreRunE,
-}
-
-func listCmdSetup(cmd *cobra.Command) {
-	cmd.Flags().StringSliceP(constants.Zones, "z", nil, "DNS zone(s) to search for records (can be used multiple times). If omitted, all zones in the resource group will be scanned")
-	cmd.Flags().StringP(constants.SubscriptionID, "s", "", "Azure subscription ID")
-	cmd.Flags().StringP(constants.ResourceGroupName, "g", "", "Azure resource group name")
-	cmd.Flags().StringP(constants.KeyVaultURL, "k", "", "Key Vault URL where certificates are stored")
-
-	BindPFlag(cmd, constants.Zones)
-	BindPFlag(cmd, constants.SubscriptionID)
-	BindPFlag(cmd, constants.ResourceGroupName)
-	BindPFlag(cmd, constants.KeyVaultURL)
-}
-
-func listCmdPreRunE(cmd *cobra.Command, args []string) error {
-	// Initialize configuration
-	config.InitConfig()
-
-	// Validate required parameters
-	if viper.GetString(constants.SubscriptionID) == "" {
-		utils.LogFatal("Subscription ID not specified")
-	}
-
-	if viper.GetString(constants.ResourceGroupName) == "" {
-		utils.LogFatal("Resource group name not specified")
-	}
-
-	if viper.GetString(constants.KeyVaultURL) == "" {
-		utils.LogFatal("Azure Key Vault URL not specified")
-	}
-
-	if viper.GetString(constants.Email) == "" {
-		utils.LogFatal("Email address not specified")
-	}
-
-	return nil
-}
-
 // listCmdRun lists DNS records and their certificate status
-func listCmdRun(cmd *cobra.Command, args []string) {
+func List() {
 	ctx := context.Background()
 
 	// Get configuration values (using same keys as run command)
-	subscriptionId := viper.GetString(constants.SubscriptionID)
-	resourceGroupName := viper.GetString(constants.ResourceGroupName)
-	vaultURL := viper.GetString(constants.KeyVaultURL)
+	subscriptionId := env.GetOrFile(azuredns.EnvSubscriptionID)
+	resourceGroupName := env.GetOrFile(azuredns.EnvResourceGroup)
+	vaultURL := env.GetOrFile("AZURE_KEY_VAULT_URL")
 
 	utils.LogDefault("List mode started: subscription=%s, resource_group=%s, key_vault=%s", subscriptionId, resourceGroupName, vaultURL)
 

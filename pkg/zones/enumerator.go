@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"azure-ssl-certificate-provisioner/pkg/azure"
-	"azure-ssl-certificate-provisioner/pkg/constants"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dns/armdns"
-	"github.com/spf13/viper"
+	"github.com/go-acme/lego/v4/platform/config/env"
+	"github.com/go-acme/lego/v4/providers/dns/azuredns"
 )
 
 // ProcessorFunc defines the function signature for processing FQDNs
@@ -18,8 +18,8 @@ type ProcessorFunc func(ctx context.Context, fqdn string)
 // EnumerateAndProcess enumerates DNS zones and records, calling the processor function for each valid FQDN
 func EnumerateAndProcess(ctx context.Context, processor ProcessorFunc) error {
 
-	zones := viper.GetStringSlice(constants.Zones)
-	resourceGroupName := viper.GetString(constants.ResourceGroupName)
+	zones := []string{}
+	resourceGroupName := env.GetOrFile(azuredns.EnvResourceGroup)
 
 	// Determine which zones to process
 	zonesToProcess, err := determineZonesToProcess(ctx, zones)
@@ -46,7 +46,7 @@ func EnumerateAndProcess(ctx context.Context, processor ProcessorFunc) error {
 // determineZonesToProcess determines which zones to process based on input
 func determineZonesToProcess(ctx context.Context, zones []string) ([]string, error) {
 	var zonesToProcess []string
-	resourceGroupName := viper.GetString(constants.ResourceGroupName)
+	resourceGroupName := env.GetOrFile(azuredns.EnvResourceGroup)
 
 	if len(zones) == 0 {
 		// If no zones specified, get all zones from the resource group
@@ -79,7 +79,7 @@ func determineZonesToProcess(ctx context.Context, zones []string) ([]string, err
 // processZone processes a single DNS zone
 func processZone(ctx context.Context, zone string, processor ProcessorFunc) error {
 	log.Printf("Processing DNS zone: %s", zone)
-	resourceGroupName := viper.GetString(constants.ResourceGroupName)
+	resourceGroupName := env.GetOrFile(azuredns.EnvResourceGroup)
 	pager := azure.GetDnsClient().NewListAllByDNSZonePager(resourceGroupName, zone, nil)
 
 	for pager.More() {

@@ -1,7 +1,6 @@
 package certificate
 
 import (
-	"azure-ssl-certificate-provisioner/pkg/constants"
 	"context"
 	"crypto/x509"
 	"encoding/base64"
@@ -14,7 +13,6 @@ import (
 	"github.com/go-acme/lego/v4/certcrypto"
 	"github.com/go-acme/lego/v4/certificate"
 	"github.com/go-acme/lego/v4/lego"
-	"github.com/spf13/viper"
 	"software.sslmate.com/src/go-pkcs12"
 )
 
@@ -47,7 +45,7 @@ func (h *Handler) ProcessFQDN(ctx context.Context, fqdn string) {
 		log.Printf("Certificate not found: fqdn=%s", fqdn)
 	}
 
-	expireThreshold := viper.GetInt(constants.ExpireThreshold)
+	expireThreshold := 7 // TODO: Make configurable
 
 	if daysLeft > expireThreshold {
 		log.Printf("Certificate renewal skipped: fqdn=%s, days_left=%d, threshold=%d", fqdn, daysLeft, expireThreshold)
