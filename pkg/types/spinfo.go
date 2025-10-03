@@ -2,8 +2,6 @@ package types
 
 import (
 	"azure-ssl-certificate-provisioner/pkg/constants"
-
-	"github.com/spf13/viper"
 )
 
 // ServicePrincipalInfo contains Azure service principal information
@@ -31,6 +29,7 @@ func (sp *ServicePrincipalInfo) GetValue(key string) string {
 	case constants.CertificatePath:
 		return sp.CertificatePath
 	default:
-		return viper.GetString(key)
+		// return an empty string for unknown keys
+		return ""
 	}
 }
