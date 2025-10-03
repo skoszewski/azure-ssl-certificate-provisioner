@@ -1,8 +1,8 @@
 package cli
 
 import (
-	"azure-ssl-certificate-provisioner/internal/types"
 	"azure-ssl-certificate-provisioner/pkg/constants"
+	"azure-ssl-certificate-provisioner/pkg/types"
 	"bytes"
 	"embed"
 	"fmt"

@@ -16,7 +16,7 @@ import (
 	"github.com/go-acme/lego/v4/lego"
 	"github.com/go-acme/lego/v4/registration"
 
-	"azure-ssl-certificate-provisioner/internal/types"
+	"azure-ssl-certificate-provisioner/pkg/types"
 )
 
 const (
