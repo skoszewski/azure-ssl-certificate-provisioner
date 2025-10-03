@@ -58,11 +58,6 @@ func createSPCmdRun(cmd *cobra.Command, args []string) {
 	displayName := viper.GetString(constants.Name)
 	tenantID := viper.GetString(constants.TenantID)
 
-	if tenantID == "" || displayName == "" {
-		log.Fatalf("Display name and tenant ID are required.")
-	}
-
-	var spInfo *azure.ServicePrincipalInfo
 	if viper.GetBool(constants.DryRun) {
 		utilities.LogDefault("Dry run mode: service principal not created")
 		return
