@@ -131,30 +131,6 @@ func generateSelfSignedCertificate(applicationID string) (*x509.Certificate, *rs
 	return cert, privateKey, nil
 }
 
-// cleanupCertificateFiles removes local certificate files for the given client ID
-func cleanupCertificateFiles(clientID string) {
-	privateKeyPath := fmt.Sprintf("%s.key", clientID)
-	certificatePath := fmt.Sprintf("%s.crt", clientID)
-
-	// Remove private key file
-	if err := os.Remove(privateKeyPath); err != nil {
-		if !os.IsNotExist(err) {
-			log.Printf("Warning: Could not remove private key file %s: %v", privateKeyPath, err)
-		}
-	} else {
-		log.Printf("Removed local certificate file: %s", privateKeyPath)
-	}
-
-	// Remove certificate file
-	if err := os.Remove(certificatePath); err != nil {
-		if !os.IsNotExist(err) {
-			log.Printf("Warning: Could not remove certificate file %s: %v", certificatePath, err)
-		}
-	} else {
-		log.Printf("Removed local certificate file: %s", certificatePath)
-	}
-}
-
 // encodePrivateKeyToPEM encodes a private key to PEM format
 func encodePrivateKeyToPEM(privateKey *rsa.PrivateKey) []byte {
 	privateKeyDER := x509.MarshalPKCS1PrivateKey(privateKey)

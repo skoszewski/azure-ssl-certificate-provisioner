@@ -8,13 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
 	"github.com/google/uuid"
 	"github.com/microsoftgraph/msgraph-sdk-go/applications"
 	"github.com/microsoftgraph/msgraph-sdk-go/models"
-	"github.com/microsoftgraph/msgraph-sdk-go/serviceprincipals"
 	"github.com/spf13/viper"
 )
 
@@ -253,154 +250,6 @@ func assignKeyVaultCertificatesOfficerRole(spInfo *ServicePrincipalInfo, subscri
 
 		// For other errors, don't retry
 		return fmt.Errorf("failed to create role assignment: %v", err)
-	}
-
-	return nil
-}
-
-// DeleteServicePrincipalByClientID deletes an Azure AD application and service principal by client ID
-// It also removes all associated role assignments
-func DeleteServicePrincipalByClientID(clientID, subscriptionID, tenantID string) error {
-	ctx := context.Background()
-
-	// Find the application by client ID
-	log.Printf("Looking for Azure AD Application with client ID: '%s'", clientID)
-
-	// Get application directly by client ID using filter
-	filter := fmt.Sprintf("appId eq '%s'", clientID)
-	apps, err := GetGraphClient().Applications().Get(ctx, &applications.ApplicationsRequestBuilderGetRequestConfiguration{
-		QueryParameters: &applications.ApplicationsRequestBuilderGetQueryParameters{
-			Filter: &filter,
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("failed to get application by client ID: %v", err)
-	}
-
-	if apps.GetValue() == nil || len(apps.GetValue()) == 0 {
-		return fmt.Errorf("no application found with client ID: '%s'", clientID)
-	}
-
-	targetApp := apps.GetValue()[0]
-	var applicationID string
-	if targetApp.GetId() != nil {
-		applicationID = *targetApp.GetId()
-	}
-
-	log.Printf("Found application: %s (Client ID: %s)", applicationID, clientID)
-
-	// Find the service principal associated with the application using filter
-	spFilter := fmt.Sprintf("appId eq '%s'", clientID)
-	servicePrincipalsResult, err := graphClient.ServicePrincipals().Get(ctx, &serviceprincipals.ServicePrincipalsRequestBuilderGetRequestConfiguration{
-		QueryParameters: &serviceprincipals.ServicePrincipalsRequestBuilderGetQueryParameters{
-			Filter: &spFilter,
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("failed to get service principal by client ID: %v", err)
-	}
-
-	var servicePrincipalID string
-	if servicePrincipalsResult.GetValue() != nil && len(servicePrincipalsResult.GetValue()) > 0 {
-		if servicePrincipalsResult.GetValue()[0].GetId() != nil {
-			servicePrincipalID = *servicePrincipalsResult.GetValue()[0].GetId()
-		}
-	}
-
-	if servicePrincipalID != "" {
-		log.Printf("Found service principal: %s", servicePrincipalID)
-
-		// Remove role assignments before deleting the service principal
-		if err := removeRoleAssignments(servicePrincipalID, subscriptionID); err != nil {
-			log.Printf("Warning: Failed to remove some role assignments: %v", err)
-		}
-
-		// Delete the service principal
-		log.Printf("Deleting service principal...")
-		err = graphClient.ServicePrincipals().ByServicePrincipalId(servicePrincipalID).Delete(ctx, nil)
-		if err != nil {
-			return fmt.Errorf("failed to delete service principal: %v", err)
-		}
-		log.Printf("Service principal deleted successfully")
-	} else {
-		log.Printf("No service principal found for application: %s", clientID)
-	}
-
-	// Delete the application
-	log.Printf("Deleting Azure AD application...")
-	err = graphClient.Applications().ByApplicationId(applicationID).Delete(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("failed to delete Azure AD application: %v", err)
-	}
-	log.Printf("Azure AD application deleted successfully")
-
-	// Clean up local certificate files
-	cleanupCertificateFiles(clientID)
-
-	return nil
-}
-
-// removeRoleAssignments removes all role assignments for a service principal
-func removeRoleAssignments(servicePrincipalID, subscriptionID string) error {
-	if subscriptionID == "" {
-		return fmt.Errorf("subscription ID is required for role assignment operations")
-	}
-
-	log.Printf("Removing role assignments for service principal %s in subscription %s", servicePrincipalID, subscriptionID)
-
-	clientOptions := &arm.ClientOptions{
-		ClientOptions: policy.ClientOptions{
-			APIVersion: "2022-04-01",
-		},
-	}
-	authClient, err := armauthorization.NewRoleAssignmentsClient(subscriptionID, credential, clientOptions)
-	if err != nil {
-		return fmt.Errorf("failed to create authorization client: %v", err)
-	}
-
-	// List all role assignments for the subscription with filter by principal ID
-	filter := fmt.Sprintf("principalId eq '%s'", servicePrincipalID)
-	pager := authClient.NewListPager(&armauthorization.RoleAssignmentsClientListOptions{
-		Filter: &filter,
-	})
-
-	var roleAssignmentsToDelete []struct {
-		Name  string
-		Scope string
-	}
-
-	for pager.More() {
-		page, err := pager.NextPage(context.Background())
-		if err != nil {
-			return fmt.Errorf("failed to list role assignments: %v", err)
-		}
-
-		for _, assignment := range page.Value {
-			if assignment.Properties != nil &&
-				assignment.Properties.PrincipalID != nil &&
-				*assignment.Properties.PrincipalID == servicePrincipalID {
-				if assignment.Name != nil && assignment.Properties.Scope != nil {
-					roleAssignmentsToDelete = append(roleAssignmentsToDelete, struct {
-						Name  string
-						Scope string
-					}{
-						Name:  *assignment.Name,
-						Scope: *assignment.Properties.Scope,
-					})
-					log.Printf("Found role assignment to remove: %s at scope: %s", *assignment.Name, *assignment.Properties.Scope)
-				}
-			}
-		}
-	}
-
-	// Delete each role assignment using the correct scope
-	for _, assignment := range roleAssignmentsToDelete {
-		_, err := authClient.Delete(context.Background(), assignment.Scope, assignment.Name, nil)
-		if err != nil {
-			log.Printf("Warning: Failed to delete role assignment %s at scope %s: %v", assignment.Name, assignment.Scope, err)
-		} else {
-			log.Printf("Role assignment removed: %s at scope: %s", assignment.Name, assignment.Scope)
-		}
 	}
 
 	return nil
