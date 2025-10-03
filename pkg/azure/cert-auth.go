@@ -68,7 +68,7 @@ func setupCertificateAuth(applicationID, privateKeyPath, certificatePath string)
 	time.Sleep(2 * time.Second)
 
 	// Try to update the application's keyCredentials directly instead of using AddKey
-	existingApp, err := graphClient.Applications().ByApplicationId(applicationID).Get(context.Background(), nil)
+	existingApp, err := GetGraphClient().Applications().ByApplicationId(applicationID).Get(context.Background(), nil)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve application for certificate update (appId: %s): %v", applicationID, err)
 	}
@@ -84,7 +84,7 @@ func setupCertificateAuth(applicationID, privateKeyPath, certificatePath string)
 	updateApp := models.NewApplication()
 	updateApp.SetKeyCredentials(updatedKeyCreds)
 
-	_, err = graphClient.Applications().ByApplicationId(applicationID).Patch(context.Background(), updateApp, nil)
+	_, err = GetGraphClient().Applications().ByApplicationId(applicationID).Patch(context.Background(), updateApp, nil)
 	if err != nil {
 		return fmt.Errorf("failed to upload certificate to Azure AD application (appId: %s): %v", applicationID, err)
 	}
