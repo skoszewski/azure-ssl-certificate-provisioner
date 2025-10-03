@@ -71,7 +71,9 @@ func createSPCmdSetup(cmd *cobra.Command) {
 	cmd.Flags().String(constants.KeyVaultName, "", "Key Vault name for Certificates Officer role assignment")
 	cmd.Flags().String(constants.KeyVaultRG, "", "Resource group name for the Key Vault")
 	cmd.Flags().Bool(constants.DryRun, false, "Output the service principal details without creating it")
-	cmd.Flags().Bool(constants.UseCertAuth, false, "Use certificate-based authentication (expects {client-id}.key and {client-id}.crt files)")
+	// As of time of writing (2025-10-03) the lego azuredns provided does not support
+	// authentication using a client certificate, only client secret or managed identity.
+	// cmd.Flags().Bool(constants.UseCertAuth, false, "Use certificate-based authentication (expects {client-id}.key and {client-id}.crt files)")
 	cmd.Flags().String(constants.Shell, utils.GetDefaultShell(), "Shell type for output template (bash, powershell)")
 
 	viper.BindPFlag(constants.Name, createSPCmd.Flags().Lookup(constants.Name))
@@ -81,7 +83,7 @@ func createSPCmdSetup(cmd *cobra.Command) {
 	viper.BindPFlag(constants.KeyVaultName, createSPCmd.Flags().Lookup(constants.KeyVaultName))
 	viper.BindPFlag(constants.KeyVaultRG, createSPCmd.Flags().Lookup(constants.KeyVaultRG))
 	viper.BindPFlag(constants.DryRun, createSPCmd.Flags().Lookup(constants.DryRun))
-	viper.BindPFlag(constants.UseCertAuth, createSPCmd.Flags().Lookup(constants.UseCertAuth))
+	// viper.BindPFlag(constants.UseCertAuth, createSPCmd.Flags().Lookup(constants.UseCertAuth))
 	viper.BindPFlag(constants.Shell, createSPCmd.Flags().Lookup(constants.Shell))
 }
 
@@ -117,8 +119,9 @@ func CreateServicePrincipal(displayName string, tenantID string) (*types.Service
 
 	// Create the service principal info struct
 	spInfo := &types.ServicePrincipalInfo{
-		TenantID:    tenantID,
-		UseCertAuth: viper.GetBool(constants.UseCertAuth),
+		TenantID: tenantID,
+		//UseCertAuth: viper.GetBool(constants.UseCertAuth),
+		UseCertAuth: false,
 	}
 
 	// Create the Azure AD appDefinition model

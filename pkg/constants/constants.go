@@ -11,11 +11,13 @@ const (
 	ConfigFile        = "config"
 
 	// Authentication related keywords and Viper keys
-	AzureClientID       = "azure-client-id"
-	AzureClientSecret   = "azure-client-secret"
-	AzureTenantID       = "azure-tenant-id"
-	AzureAuthMethod     = "azure-auth-method"
-	AzureAuthMsiTimeout = "azure-auth-msi-timeout"
+	AzureClientID                  = "azure-client-id"
+	AzureTenantID                  = "azure-tenant-id"
+	AzureClientSecret              = "azure-client-secret"
+	AzureClientCertificatePath     = "azure-client-certificate-path"
+	AzureClientCertificatePassword = "azure-client-certificate-password"
+	AzureAuthMethod                = "azure-auth-method"
+	AzureAuthMsiTimeout            = "azure-auth-msi-timeout"
 
 	// Keys related to Service Principal creation and management
 	Name            = "name"

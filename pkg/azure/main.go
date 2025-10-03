@@ -27,6 +27,8 @@ var (
 	err                 error
 )
 
+// As of time of writing (2025-10-03) the lego azuredns provided does not support
+// authentication using a client certificate, only client secret or managed identity.
 var authEnvMap = map[string]string{
 	constants.AzureTenantID:     legoAzure.EnvTenantID,
 	constants.AzureClientID:     legoAzure.EnvClientID,
