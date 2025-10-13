@@ -5,7 +5,7 @@ import os
 import sys
 from typing import List, Optional
 
-from provisioner import Config
+from provisioner import Provisioner
 
 
 def configure_logging() -> logging.Logger:
@@ -45,22 +45,23 @@ def main(argv: Optional[List[str]] = None) -> int:
     logger = configure_logging()
 
     try:
-        config = Config(os.environ, dry_run=args.dry_run)
+        provisioner = Provisioner(os.environ, dry_run=args.dry_run)
     except ValueError as exc:
         logger.error("%s", exc)
         return 2
 
-    if config.dry_run:
+    if provisioner.dry_run:
         logger.info("Dry run enabled; no changes will be made.")
 
-    config.initialize_clients()
+    provisioner.initialize_clients()
 
-    if not config.dry_run:
-        config.ensure_acme_account()
-        config.create_acme_client()
-        config.ensure_registration()
+    if not provisioner.dry_run:
+        provisioner.ensure_acme_account()
+        provisioner.create_acme_client()
+        provisioner.ensure_registration()
 
-    results, failures, zones_found = config.process_zones()
+    results, failures, zones_found = provisioner.process_zones()
+
     if not zones_found:
         return 0
 

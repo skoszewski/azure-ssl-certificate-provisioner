@@ -31,7 +31,7 @@ DEFAULT_ORDER_TIMEOUT = 300
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-class Config:
+class Provisioner:
     acme_email: str
     subscription_id: str
     resource_group: str
