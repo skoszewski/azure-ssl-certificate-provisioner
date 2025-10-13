@@ -37,10 +37,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     if provisioner.dry_run:
         logger.info("Dry run enabled; no changes will be made.")
-
-    provisioner.initialize_clients()
-
-    if not provisioner.dry_run:
+    else:
         provisioner.prepare_acme_client()
 
     results, failures, zones_found = provisioner.process_zones()

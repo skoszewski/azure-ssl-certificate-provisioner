@@ -28,8 +28,10 @@ DEFAULT_PROPAGATION_TIMEOUT = 420
 DEFAULT_PROPAGATION_INTERVAL = 6
 DEFAULT_ORDER_TIMEOUT = 300
 
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
 
 class Provisioner:
     acme_email: str
@@ -105,18 +107,18 @@ class Provisioner:
         self._credential = None
         self._registration = None
 
-    def initialize_clients(self, credential_type: str = "default") -> None:
-        if (
-            self._credential is not None
-            and self._secret_client is not None
-            and self._certificate_client is not None
-            and self._dns_client is not None
-        ):
-            return
+        # Prepare clients except ACME, which requires account setup
+        credential_type = env.get("AZURE_AUTH_METHOD", "default").lower()
 
-        self._credential = get_credential(credential_type)
-        self._secret_client = SecretClient(vault_url=self.key_vault_url, credential=self._credential)
-        self._certificate_client = CertificateClient(vault_url=self.key_vault_url, credential=self._credential)
+        if credential_type == "env":
+            self._credential = EnvironmentCredential()
+        elif credential_type == "msi":
+            self._credential = ManagedIdentityCredential()
+        else:
+            self._credential = DefaultAzureCredential()
+
+        self._secret_client = SecretClient(credential=self._credential, vault_url=self.key_vault_url)
+        self._certificate_client = CertificateClient(credential=self._credential, vault_url=self.key_vault_url)
         self._dns_client = DnsManagementClient(credential=self._credential, subscription_id=self.subscription_id)
 
     def _ensure_acme_account(self) -> None:
@@ -422,15 +424,6 @@ class ProvisioningResult:
     certificate_name: str
     action: str
     message: str
-
-
-def get_credential(credential_type: str = "default") -> ChainedTokenCredential:
-    if credential_type == "env":
-        return EnvironmentCredential()
-    elif credential_type == "msi":
-        return ManagedIdentityCredential()
-    else:
-        return DefaultAzureCredential()
 
 
 def encode_email_for_secret(email: str) -> str:
