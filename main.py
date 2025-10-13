@@ -18,7 +18,6 @@ from provisioner import (
     list_acme_enabled_records,
     list_target_zones,
     get_credential,
-    provision_certificate_for_record,
 )
 
 
@@ -99,8 +98,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         for record in records:
             fqdn = record.fqdn.rstrip(".")
             try:
-                result = provision_certificate_for_record(
-                    config,
+                result = config.provision_certificate_for_record(
                     acme_client,
                     net,
                     jwk,

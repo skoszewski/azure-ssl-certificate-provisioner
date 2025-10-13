@@ -46,6 +46,163 @@ class Config:
     order_timeout: int = DEFAULT_ORDER_TIMEOUT
     dry_run: bool = False
 
+    def provision_certificate_for_record(
+        self,
+        acme_client: Optional[client.ClientV2],
+        net: Optional[client.ClientNetwork],
+        jwk: Optional[JWKRSA],
+        dns_client: DnsManagementClient,
+        certificate_client: CertificateClient,
+        registration: Optional[messages.RegistrationResource],
+        zone_name: str,
+        record: RecordSet,
+    ) -> "ProvisioningResult":
+        domain = record.fqdn.rstrip(".")
+        certificate_name = certificate_name_for_domain(domain)
+        logger.info("Processing %s (certificate %s)", domain, certificate_name)
+
+        has_cert, expires_on = get_certificate_state(certificate_client, certificate_name)
+        if has_cert and not needs_renewal(expires_on, self.cert_expiry_threshold_days):
+            expires_str = expires_on.isoformat() if expires_on else "unknown"
+            logger.info("Certificate %s valid until %s; skipping", certificate_name, expires_str)
+            return ProvisioningResult(
+                fqdn=domain,
+                certificate_name=certificate_name,
+                action="skipped",
+                message=f"Existing certificate valid until {expires_str}",
+            )
+
+        if self.dry_run:
+            if has_cert:
+                expires_str = expires_on.isoformat() if expires_on else "unknown"
+                message = (
+                    f"Dry run: certificate expires on {expires_str}; would renew and import updated chain into Key Vault"
+                )
+                action = "would-renew"
+                logger.info("Dry run: would renew certificate %s expiring %s", certificate_name, expires_str)
+            else:
+                message = "Dry run: no existing certificate; would request new certificate and import into Key Vault"
+                action = "would-create"
+                logger.info("Dry run: would create new certificate %s", certificate_name)
+            return ProvisioningResult(
+                fqdn=domain,
+                certificate_name=certificate_name,
+                action=action,
+                message=message,
+            )
+
+        if net is None or acme_client is None or jwk is None:
+            raise RuntimeError("ACME client not initialized")
+
+        if net.account is None and registration is not None:
+            net.account = registration
+
+        private_key_pem, csr_pem = generate_domain_key_and_csr(domain)
+        logger.info("Generated domain key and CSR for %s", domain)
+        order = acme_client.new_order(csr_pem)
+        logger.info("Created ACME order for %s with %d authorization(s)", domain, len(order.authorizations))
+
+        published: List[Tuple[str, str]] = []
+
+        try:
+            for authorization in order.authorizations:
+                identifier = authorization.body.identifier.value
+                dns_challenge = next(
+                    chall_body
+                    for chall_body in authorization.body.challenges
+                    if isinstance(chall_body.chall, challenges.DNS01)
+                )
+                txt_fqdn = dns_challenge.chall.validation_domain_name(identifier)
+                txt_value = dns_challenge.chall.validation(jwk)
+                record_name = to_zone_relative(txt_fqdn, zone_name)
+
+                create_or_merge_txt_record(
+                    dns_client,
+                    self.resource_group,
+                    zone_name,
+                    record_name,
+                    txt_value,
+                    self.dns_ttl,
+                )
+                published.append((record_name, txt_value))
+
+                wait_for_dns_txt(
+                    txt_fqdn,
+                    txt_value,
+                    timeout=self.propagation_timeout,
+                    interval=self.propagation_interval,
+                )
+                acme_client.answer_challenge(dns_challenge, dns_challenge.chall.response(jwk))
+                logger.info("Answered DNS-01 challenge for identifier %s", identifier)
+
+            deadline = _dt.datetime.now() + _dt.timedelta(seconds=self.order_timeout)
+            order = acme_client.poll_authorizations(order, deadline)
+            logger.info("All authorizations valid for %s; finalizing order", domain)
+            finalize_success = False
+            attempt = 0
+            last_error: Optional[messages.Error] = None
+            while attempt < 3 and not finalize_success:
+                attempt += 1
+                try:
+                    logger.info("Finalizing order for %s (attempt %d)", domain, attempt)
+                    order = acme_client.finalize_order(order, deadline)
+                    finalize_success = True
+                except messages.Error as err:
+                    last_error = err
+                    error_detail = err.detail or str(err)
+                    logger.warning(
+                        "Finalize attempt %d failed for %s [%s]: %s",
+                        attempt,
+                        domain,
+                        getattr(err, "typ", "unknown"),
+                        error_detail,
+                    )
+                    if err.typ == "urn:ietf:params:acme:error:caa" and attempt < 3:
+                        sleep_duration = 5 * attempt
+                        logger.info(
+                            "Retrying finalize for %s after %d seconds due to CAA check failure", domain, sleep_duration
+                        )
+                        time.sleep(sleep_duration)
+                        continue
+                    break
+            if not finalize_success:
+                if last_error:
+                    error_detail = last_error.detail or str(last_error)
+                    raise RuntimeError(
+                        f"ACME finalize failed for {domain}: {getattr(last_error, 'typ', 'unknown')} - {error_detail}"
+                    ) from last_error
+                raise RuntimeError(f"ACME finalize failed for {domain}: unknown error")
+            logger.info("Finalized order for %s; importing certificate into Key Vault", domain)
+
+            import_certificate_bundle(
+                certificate_client,
+                certificate_name,
+                private_key_pem,
+                order.fullchain_pem,
+                tags={"dnsZone": zone_name, "fqdn": domain, "managed-by": USER_AGENT},
+            )
+
+            action = "renewed" if has_cert else "created"
+            logger.info("Successfully %s certificate %s", action, certificate_name)
+            return ProvisioningResult(
+                fqdn=domain,
+                certificate_name=certificate_name,
+                action=action,
+                message="Certificate imported into Key Vault",
+            )
+        finally:
+            for record_name, value in published:
+                try:
+                    delete_txt_value_or_recordset(
+                        dns_client,
+                        self.resource_group,
+                        zone_name,
+                        record_name,
+                        value,
+                    )
+                except Exception:
+                    pass
+
 
 @dataclass
 class ProvisioningResult:
@@ -372,156 +529,3 @@ def import_certificate_bundle(
         tags=tags,
     )
 
-
-def provision_certificate_for_record(
-    config: Config,
-    acme_client: Optional[client.ClientV2],
-    net: Optional[client.ClientNetwork],
-    jwk: Optional[JWKRSA],
-    dns_client: DnsManagementClient,
-    certificate_client: CertificateClient,
-    registration: Optional[messages.RegistrationResource],
-    zone_name: str,
-    record: RecordSet,
-) -> ProvisioningResult:
-    domain = record.fqdn.rstrip(".")
-    certificate_name = certificate_name_for_domain(domain)
-    logger.info("Processing %s (certificate %s)", domain, certificate_name)
-
-    has_cert, expires_on = get_certificate_state(certificate_client, certificate_name)
-    if has_cert and not needs_renewal(expires_on, config.cert_expiry_threshold_days):
-        expires_str = expires_on.isoformat() if expires_on else "unknown"
-        logger.info("Certificate %s valid until %s; skipping", certificate_name, expires_str)
-        return ProvisioningResult(
-            fqdn=domain,
-            certificate_name=certificate_name,
-            action="skipped",
-            message=f"Existing certificate valid until {expires_str}",
-        )
-
-    if config.dry_run:
-        if has_cert:
-            expires_str = expires_on.isoformat() if expires_on else "unknown"
-            message = (
-                f"Dry run: certificate expires on {expires_str}; would renew and import updated chain into Key Vault"
-            )
-            action = "would-renew"
-            logger.info("Dry run: would renew certificate %s expiring %s", certificate_name, expires_str)
-        else:
-            message = "Dry run: no existing certificate; would request new certificate and import into Key Vault"
-            action = "would-create"
-            logger.info("Dry run: would create new certificate %s", certificate_name)
-        return ProvisioningResult(
-            fqdn=domain,
-            certificate_name=certificate_name,
-            action=action,
-            message=message,
-        )
-
-    if net is None or acme_client is None or jwk is None:
-        raise RuntimeError("ACME client not initialized")
-
-    if net.account is None and registration is not None:
-        net.account = registration
-
-    private_key_pem, csr_pem = generate_domain_key_and_csr(domain)
-    logger.info("Generated domain key and CSR for %s", domain)
-    order = acme_client.new_order(csr_pem)
-    logger.info("Created ACME order for %s with %d authorization(s)", domain, len(order.authorizations))
-
-    published: List[Tuple[str, str]] = []
-
-    try:
-        for authorization in order.authorizations:
-            identifier = authorization.body.identifier.value
-            dns_challenge = next(
-                chall_body for chall_body in authorization.body.challenges if isinstance(chall_body.chall, challenges.DNS01)
-            )
-            txt_fqdn = dns_challenge.chall.validation_domain_name(identifier)
-            txt_value = dns_challenge.chall.validation(jwk)
-            record_name = to_zone_relative(txt_fqdn, zone_name)
-
-            create_or_merge_txt_record(
-                dns_client,
-                config.resource_group,
-                zone_name,
-                record_name,
-                txt_value,
-                config.dns_ttl,
-            )
-            published.append((record_name, txt_value))
-
-            wait_for_dns_txt(
-                txt_fqdn,
-                txt_value,
-                timeout=config.propagation_timeout,
-                interval=config.propagation_interval,
-            )
-            acme_client.answer_challenge(dns_challenge, dns_challenge.chall.response(jwk))
-            logger.info("Answered DNS-01 challenge for identifier %s", identifier)
-
-        deadline = _dt.datetime.now() + _dt.timedelta(seconds=config.order_timeout)
-        order = acme_client.poll_authorizations(order, deadline)
-        logger.info("All authorizations valid for %s; finalizing order", domain)
-        finalize_success = False
-        attempt = 0
-        last_error: Optional[messages.Error] = None
-        while attempt < 3 and not finalize_success:
-            attempt += 1
-            try:
-                logger.info("Finalizing order for %s (attempt %d)", domain, attempt)
-                order = acme_client.finalize_order(order, deadline)
-                finalize_success = True
-            except messages.Error as err:
-                last_error = err
-                error_detail = err.detail or str(err)
-                logger.warning(
-                    "Finalize attempt %d failed for %s [%s]: %s",
-                    attempt,
-                    domain,
-                    getattr(err, "typ", "unknown"),
-                    error_detail,
-                )
-                if err.typ == "urn:ietf:params:acme:error:caa" and attempt < 3:
-                    sleep_duration = 5 * attempt
-                    logger.info("Retrying finalize for %s after %d seconds due to CAA check failure", domain, sleep_duration)
-                    time.sleep(sleep_duration)
-                    continue
-                break
-        if not finalize_success:
-            if last_error:
-                error_detail = last_error.detail or str(last_error)
-                raise RuntimeError(
-                    f"ACME finalize failed for {domain}: {getattr(last_error, 'typ', 'unknown')} - {error_detail}"
-                ) from last_error
-            raise RuntimeError(f"ACME finalize failed for {domain}: unknown error")
-        logger.info("Finalized order for %s; importing certificate into Key Vault", domain)
-
-        import_certificate_bundle(
-            certificate_client,
-            certificate_name,
-            private_key_pem,
-            order.fullchain_pem,
-            tags={"dnsZone": zone_name, "fqdn": domain, "managed-by": USER_AGENT},
-        )
-
-        action = "renewed" if has_cert else "created"
-        logger.info("Successfully %s certificate %s", action, certificate_name)
-        return ProvisioningResult(
-            fqdn=domain,
-            certificate_name=certificate_name,
-            action=action,
-            message="Certificate imported into Key Vault",
-        )
-    finally:
-        for record_name, value in published:
-            try:
-                delete_txt_value_or_recordset(
-                    dns_client,
-                    config.resource_group,
-                    zone_name,
-                    record_name,
-                    value,
-                )
-            except Exception:
-                pass
