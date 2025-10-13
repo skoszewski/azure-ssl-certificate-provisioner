@@ -8,7 +8,7 @@ import logging
 
 from acme import challenges, client, messages
 from azure.core.exceptions import ResourceNotFoundError
-from azure.identity import DefaultAzureCredential
+from azure.identity import ChainedTokenCredential, DefaultAzureCredential, EnvironmentCredential, ManagedIdentityCredential
 from azure.keyvault.certificates import CertificateClient
 from azure.keyvault.secrets import SecretClient
 from azure.mgmt.dns import DnsManagementClient
@@ -93,8 +93,13 @@ def build_config_from_env(env: Dict[str, str], *, dry_run: bool = False) -> Conf
     )
 
 
-def default_credential() -> DefaultAzureCredential:
-    return DefaultAzureCredential()
+def get_credential(credential_type: str = "default") -> ChainedTokenCredential:
+    if credential_type == "env":
+        return EnvironmentCredential()
+    elif credential_type == "msi":
+        return ManagedIdentityCredential()
+    else:
+        return DefaultAzureCredential()
 
 
 def encode_email_for_secret(email: str) -> str:

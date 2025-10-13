@@ -17,7 +17,7 @@ from provisioner import (
     ensure_registration,
     list_acme_enabled_records,
     list_target_zones,
-    default_credential,
+    get_credential,
     provision_certificate_for_record,
 )
 
@@ -67,7 +67,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     if config.dry_run:
         logger.info("Dry run enabled; no changes will be made.")
 
-    credential = default_credential()
+    credential = get_credential()
     secret_client = SecretClient(vault_url=config.key_vault_url, credential=credential)
     certificate_client = CertificateClient(vault_url=config.key_vault_url, credential=credential)
     dns_client = DnsManagementClient(credential=credential, subscription_id=config.subscription_id)
