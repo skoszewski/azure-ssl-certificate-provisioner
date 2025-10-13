@@ -458,7 +458,19 @@ def provision_certificate_for_record(
         deadline = _dt.datetime.now() + _dt.timedelta(seconds=config.order_timeout)
         order = acme_client.poll_authorizations(order, deadline)
         logger.info("All authorizations valid for %s; finalizing order", domain)
-        order = acme_client.finalize_order(order, deadline)
+        try:
+            order = acme_client.finalize_order(order, deadline)
+        except messages.Error as err:
+            error_detail = err.detail or str(err)
+            logger.error(
+                "ACME finalize failed for %s [%s]: %s",
+                domain,
+                getattr(err, "typ", "unknown"),
+                error_detail,
+            )
+            raise RuntimeError(
+                f"ACME finalize failed for {domain}: {getattr(err, 'typ', 'unknown')} - {error_detail}"
+            ) from err
         logger.info("Finalized order for %s; importing certificate into Key Vault", domain)
 
         import_certificate_bundle(
