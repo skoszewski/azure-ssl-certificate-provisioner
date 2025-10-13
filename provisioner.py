@@ -458,19 +458,38 @@ def provision_certificate_for_record(
         deadline = _dt.datetime.now() + _dt.timedelta(seconds=config.order_timeout)
         order = acme_client.poll_authorizations(order, deadline)
         logger.info("All authorizations valid for %s; finalizing order", domain)
-        try:
-            order = acme_client.finalize_order(order, deadline)
-        except messages.Error as err:
-            error_detail = err.detail or str(err)
-            logger.error(
-                "ACME finalize failed for %s [%s]: %s",
-                domain,
-                getattr(err, "typ", "unknown"),
-                error_detail,
-            )
-            raise RuntimeError(
-                f"ACME finalize failed for {domain}: {getattr(err, 'typ', 'unknown')} - {error_detail}"
-            ) from err
+        finalize_success = False
+        attempt = 0
+        last_error: Optional[messages.Error] = None
+        while attempt < 3 and not finalize_success:
+            attempt += 1
+            try:
+                logger.info("Finalizing order for %s (attempt %d)", domain, attempt)
+                order = acme_client.finalize_order(order, deadline)
+                finalize_success = True
+            except messages.Error as err:
+                last_error = err
+                error_detail = err.detail or str(err)
+                logger.warning(
+                    "Finalize attempt %d failed for %s [%s]: %s",
+                    attempt,
+                    domain,
+                    getattr(err, "typ", "unknown"),
+                    error_detail,
+                )
+                if err.typ == "urn:ietf:params:acme:error:caa" and attempt < 3:
+                    sleep_duration = 5 * attempt
+                    logger.info("Retrying finalize for %s after %d seconds due to CAA check failure", domain, sleep_duration)
+                    time.sleep(sleep_duration)
+                    continue
+                break
+        if not finalize_success:
+            if last_error:
+                error_detail = last_error.detail or str(last_error)
+                raise RuntimeError(
+                    f"ACME finalize failed for {domain}: {getattr(last_error, 'typ', 'unknown')} - {error_detail}"
+                ) from last_error
+            raise RuntimeError(f"ACME finalize failed for {domain}: unknown error")
         logger.info("Finalized order for %s; importing certificate into Key Vault", domain)
 
         import_certificate_bundle(
