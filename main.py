@@ -3,46 +3,31 @@ import argparse
 import logging
 import os
 import sys
-from typing import List, Optional
+from typing import Optional, List
 
 from provisioner import Provisioner
 
 
-def configure_logging() -> logging.Logger:
-    level_name = os.environ.get("LOG_LEVEL", "INFO").upper()
-    level = getattr(logging, level_name, logging.INFO)
-
-    handler = logging.StreamHandler()
-    formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
-    handler.setFormatter(formatter)
-
-    logger = logging.getLogger(__name__)
-    if not logger.handlers:
-        logger.addHandler(handler)
-    logger.setLevel(level)
-
-    provisioner_logger = logging.getLogger("provisioner")
-    if not provisioner_logger.handlers:
-        provisioner_logger.addHandler(handler)
-    provisioner_logger.setLevel(level)
-    provisioner_logger.propagate = False
-
-    return logger
-
-
-def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
+def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Provision or renew SSL certificates for Azure DNS records.")
     parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Simulate the provisioning flow without registering accounts or issuing certificates.",
     )
-    return parser.parse_args(argv)
 
+    args = parser.parse_args(argv)
 
-def main(argv: Optional[List[str]] = None) -> int:
-    args = parse_args(argv)
-    logger = configure_logging()
+    # Read log level from environment variable, default to INFO
+    level_name = os.environ.get("LOG_LEVEL", "INFO").upper()
+
+    # Configure basic console logging
+    logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s')
+
+    # Set log level for the root logger and specific loggers
+    logger = logging.getLogger(__name__)
+    logger.setLevel(level_name)
+    logging.getLogger("provisioner").setLevel(level_name)
 
     try:
         provisioner = Provisioner(os.environ, dry_run=args.dry_run)
