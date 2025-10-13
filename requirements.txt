@@ -3,4 +3,6 @@ josepy
 cryptography
 azure-identity
 azure-mgmt-dns
+azure-keyvault-certificates
+azure-keyvault-secrets
 dnspython

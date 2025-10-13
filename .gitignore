@@ -1,6 +1,9 @@
 # Pyton virtual environment
 .venv
 
+# Shell environment
+*.env
+
 # Markdown temporary notes
 *.md
 !README.md
