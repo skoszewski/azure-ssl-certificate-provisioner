@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import datetime as _dt
 import time
-from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Sequence, Tuple
 import logging
 
 from acme import challenges, client, messages
@@ -31,26 +31,75 @@ DEFAULT_ORDER_TIMEOUT = 300
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-@dataclass
 class Config:
     acme_email: str
     subscription_id: str
     resource_group: str
     key_vault_url: str
     cert_expiry_threshold_days: int
-    dns_zones: Optional[Sequence[str]] = None
-    acme_directory_url: str = DEFAULT_DIRECTORY_URL
-    dns_ttl: int = DEFAULT_DNS_TTL
-    propagation_timeout: int = DEFAULT_PROPAGATION_TIMEOUT
-    propagation_interval: int = DEFAULT_PROPAGATION_INTERVAL
-    order_timeout: int = DEFAULT_ORDER_TIMEOUT
-    dry_run: bool = False
-    _acme_client: Optional[client.ClientV2] = field(init=False, default=None, repr=False)
-    _net: Optional[client.ClientNetwork] = field(init=False, default=None, repr=False)
-    _jwk: Optional[JWKRSA] = field(init=False, default=None, repr=False)
-    _dns_client: Optional[DnsManagementClient] = field(init=False, default=None, repr=False)
-    _certificate_client: Optional[CertificateClient] = field(init=False, default=None, repr=False)
-    _secret_client: Optional[SecretClient] = field(init=False, default=None, repr=False)
+    dns_zones: Optional[Sequence[str]]
+    acme_directory_url: str
+    dns_ttl: int
+    propagation_timeout: int
+    propagation_interval: int
+    order_timeout: int
+    dry_run: bool
+    _acme_client: Optional[client.ClientV2]
+    _net: Optional[client.ClientNetwork]
+    _jwk: Optional[JWKRSA]
+    _dns_client: Optional[DnsManagementClient]
+    _certificate_client: Optional[CertificateClient]
+    _secret_client: Optional[SecretClient]
+
+    def __init__(self, env: Dict[str, str], *, dry_run: bool = False) -> None:
+        email = env.get("ACME_EMAIL")
+        subscription_id = env.get("AZURE_SUBSCRIPTION_ID")
+        resource_group = env.get("AZURE_RESOURCE_GROUP")
+        key_vault_url = env.get("AZURE_KEY_VAULT_URL")
+        missing = [
+            name
+            for name, value in [
+                ("ACME_EMAIL", email),
+                ("AZURE_SUBSCRIPTION_ID", subscription_id),
+                ("AZURE_RESOURCE_GROUP", resource_group),
+                ("AZURE_KEY_VAULT_URL", key_vault_url),
+            ]
+            if not value
+        ]
+        if missing:
+            raise ValueError(f"Missing required environment variables: {', '.join(missing)}")
+
+        assert email is not None
+        assert subscription_id is not None
+        assert resource_group is not None
+        assert key_vault_url is not None
+
+        dns_zones_raw = env.get("DNS_ZONES")
+        dns_zones: Optional[List[str]] = None
+        if dns_zones_raw:
+            dns_zones = [zone.strip().lower().rstrip(".") for zone in dns_zones_raw.split(",") if zone.strip()]
+
+        threshold_days = env.get("CERT_EXPIRY_THRESHOLD_DAYS")
+        cert_threshold = int(threshold_days) if threshold_days else 7
+
+        self.acme_email = email
+        self.subscription_id = subscription_id
+        self.resource_group = resource_group
+        self.key_vault_url = key_vault_url
+        self.cert_expiry_threshold_days = cert_threshold
+        self.dns_zones = dns_zones
+        self.acme_directory_url = env.get("ACME_DIRECTORY_URL", DEFAULT_DIRECTORY_URL)
+        self.dns_ttl = DEFAULT_DNS_TTL
+        self.propagation_timeout = DEFAULT_PROPAGATION_TIMEOUT
+        self.propagation_interval = DEFAULT_PROPAGATION_INTERVAL
+        self.order_timeout = DEFAULT_ORDER_TIMEOUT
+        self.dry_run = dry_run
+        self._acme_client = None
+        self._net = None
+        self._jwk = None
+        self._dns_client = None
+        self._certificate_client = None
+        self._secret_client = None
 
     def bind_service_clients(
         self,
@@ -334,51 +383,12 @@ class Config:
                 except Exception:
                     pass
 
-
 @dataclass
 class ProvisioningResult:
     fqdn: str
     certificate_name: str
     action: str
     message: str
-
-
-def build_config_from_env(env: Dict[str, str], *, dry_run: bool = False) -> Config:
-    email = env.get("ACME_EMAIL")
-    subscription_id = env.get("AZURE_SUBSCRIPTION_ID")
-    resource_group = env.get("AZURE_RESOURCE_GROUP")
-    key_vault_url = env.get("AZURE_KEY_VAULT_URL")
-    if not all([email, subscription_id, resource_group, key_vault_url]):
-        missing = [
-            name
-            for name, value in [
-                ("ACME_EMAIL", email),
-                ("AZURE_SUBSCRIPTION_ID", subscription_id),
-                ("AZURE_RESOURCE_GROUP", resource_group),
-                ("AZURE_KEY_VAULT_URL", key_vault_url),
-            ]
-            if not value
-        ]
-        raise ValueError(f"Missing required environment variables: {', '.join(missing)}")
-
-    dns_zones_raw = env.get("DNS_ZONES")
-    dns_zones: Optional[List[str]] = None
-    if dns_zones_raw:
-        dns_zones = [zone.strip().lower().rstrip(".") for zone in dns_zones_raw.split(",") if zone.strip()]
-
-    threshold_days = env.get("CERT_EXPIRY_THRESHOLD_DAYS")
-    cert_threshold = int(threshold_days) if threshold_days else 7
-
-    return Config(
-        acme_email=email,
-        subscription_id=subscription_id,
-        resource_group=resource_group,
-        key_vault_url=key_vault_url,
-        cert_expiry_threshold_days=cert_threshold,
-        dns_zones=dns_zones,
-        acme_directory_url=env.get("ACME_DIRECTORY_URL", DEFAULT_DIRECTORY_URL),
-        dry_run=dry_run,
-    )
 
 
 def get_credential(credential_type: str = "default") -> ChainedTokenCredential:

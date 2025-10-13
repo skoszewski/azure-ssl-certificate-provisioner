@@ -9,7 +9,7 @@ from azure.keyvault.certificates import CertificateClient
 from azure.keyvault.secrets import SecretClient
 from azure.mgmt.dns import DnsManagementClient
 
-from provisioner import ProvisioningResult, build_config_from_env, get_credential
+from provisioner import Config, ProvisioningResult, get_credential
 
 
 def configure_logging() -> logging.Logger:
@@ -49,7 +49,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     logger = configure_logging()
 
     try:
-        config = build_config_from_env(os.environ, dry_run=args.dry_run)
+        config = Config(os.environ, dry_run=args.dry_run)
     except ValueError as exc:
         logger.error("%s", exc)
         return 2
