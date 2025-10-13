@@ -28,12 +28,6 @@ def main(argv: Optional[List[str]] = None) -> int:
     logging.getLogger("azure").setLevel(logging.WARNING)
     logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(logging.ERROR)
 
-
-    # Set log level for the root logger and specific loggers
-    # logger = logging.getLogger(__name__)
-    # logger.setLevel(level_name)
-    # logging.getLogger("provisioner").setLevel(level_name)
-
     try:
         provisioner = Provisioner(os.environ, dry_run=args.dry_run)
     except ValueError as exc:
