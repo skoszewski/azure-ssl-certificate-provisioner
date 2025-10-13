@@ -46,6 +46,107 @@ class Config:
     order_timeout: int = DEFAULT_ORDER_TIMEOUT
     dry_run: bool = False
 
+    def ensure_acme_account(
+        self,
+        secret_client: SecretClient,
+    ) -> Tuple[JWKRSA, Optional[messages.RegistrationResource]]:
+        key_name, reg_name = account_secret_names(self.acme_email)
+        key_value: Optional[str] = None
+
+        try:
+            key_secret = secret_client.get_secret(key_name)
+            key_value = key_secret.value
+            logger.info("Loaded existing ACME account key from secret %s", key_name)
+        except ResourceNotFoundError:
+            key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+            key_bytes = key.private_bytes(
+                serialization.Encoding.PEM,
+                serialization.PrivateFormat.TraditionalOpenSSL,
+                serialization.NoEncryption(),
+            )
+            key_value = key_bytes.decode("utf-8")
+            secret_client.set_secret(key_name, key_value)
+            logger.info("Generated new ACME account key and stored in secret %s", key_name)
+
+        private_key = serialization.load_pem_private_key(key_value.encode("utf-8"), password=None)
+        jwk = JWKRSA(key=private_key)
+
+        try:
+            reg_secret = secret_client.get_secret(reg_name)
+            registration = messages.RegistrationResource.json_loads(reg_secret.value)
+            logger.info("Loaded existing ACME registration from secret %s", reg_name)
+        except ResourceNotFoundError:
+            registration = None
+            logger.info("No ACME registration found in secret %s", reg_name)
+
+        return jwk, registration
+
+    def store_registration(
+        self,
+        secret_client: SecretClient,
+        registration: messages.RegistrationResource,
+    ) -> None:
+        _, reg_name = account_secret_names(self.acme_email)
+        secret_client.set_secret(reg_name, registration.json_dumps())
+        logger.info("Stored ACME registration in secret %s", reg_name)
+
+    def create_acme_client(
+        self,
+        jwk: JWKRSA,
+        registration: Optional[messages.RegistrationResource],
+    ) -> Tuple[client.ClientV2, client.ClientNetwork]:
+        net = client.ClientNetwork(jwk, account=registration, user_agent=USER_AGENT)
+        directory = client.ClientV2.get_directory(self.acme_directory_url, net)
+        acme_client = client.ClientV2(directory, net)
+        return acme_client, net
+
+    def ensure_registration(
+        self,
+        secret_client: SecretClient,
+        acme_client: client.ClientV2,
+        net: client.ClientNetwork,
+        registration: Optional[messages.RegistrationResource],
+    ) -> messages.RegistrationResource:
+        if registration:
+            net.account = registration
+            logger.info("Using existing ACME registration for %s", self.acme_email)
+            return registration
+        new_registration = acme_client.new_account(
+            messages.NewRegistration.from_data(
+                email=self.acme_email,
+                terms_of_service_agreed=True,
+            )
+        )
+        net.account = new_registration
+        self.store_registration(secret_client, new_registration)
+        logger.info("Created new ACME registration for %s", self.acme_email)
+        return new_registration
+
+    def list_target_zones(self, dns_client: DnsManagementClient) -> List[str]:
+        zones: List[str] = []
+        allowed = {z.lower() for z in self.dns_zones} if self.dns_zones else None
+        for zone in dns_client.zones.list_by_resource_group(self.resource_group):
+            name = zone.name.rstrip(".")
+            if allowed and name.lower() not in allowed:
+                continue
+            zones.append(name)
+        logger.info("Found %d Azure DNS zone(s) to process", len(zones))
+        return zones
+
+    def list_acme_enabled_records(
+        self,
+        dns_client: DnsManagementClient,
+        zone_name: str,
+    ) -> List[RecordSet]:
+        records: List[RecordSet] = []
+        for record_type in ("A", "CNAME"):
+            for record in dns_client.record_sets.list_by_type(self.resource_group, zone_name, record_type):
+                metadata = (record.metadata or {})
+                if metadata.get("acme", "").lower() == "true":
+                    records.append(record)
+        logger.info("Zone %s has %d ACME-enabled record(s)", zone_name, len(records))
+        return records
+
     def provision_certificate_for_record(
         self,
         acme_client: Optional[client.ClientV2],
@@ -268,109 +369,6 @@ def account_secret_names(email: str) -> Tuple[str, str]:
     return (f"acme-account-{encoded}-key", f"acme-account-{encoded}-registration")
 
 
-def ensure_acme_account(
-    config: Config,
-    secret_client: SecretClient,
-) -> Tuple[JWKRSA, Optional[messages.RegistrationResource]]:
-    key_name, reg_name = account_secret_names(config.acme_email)
-    key_value: Optional[str] = None
-
-    try:
-        key_secret = secret_client.get_secret(key_name)
-        key_value = key_secret.value
-        logger.info("Loaded existing ACME account key from secret %s", key_name)
-    except ResourceNotFoundError:
-        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-        key_bytes = key.private_bytes(
-            serialization.Encoding.PEM,
-            serialization.PrivateFormat.TraditionalOpenSSL,
-            serialization.NoEncryption(),
-        )
-        key_value = key_bytes.decode("utf-8")
-        secret_client.set_secret(key_name, key_value)
-        logger.info("Generated new ACME account key and stored in secret %s", key_name)
-
-    private_key = serialization.load_pem_private_key(key_value.encode("utf-8"), password=None)
-    jwk = JWKRSA(key=private_key)
-
-    try:
-        reg_secret = secret_client.get_secret(reg_name)
-        registration = messages.RegistrationResource.json_loads(reg_secret.value)
-        logger.info("Loaded existing ACME registration from secret %s", reg_name)
-    except ResourceNotFoundError:
-        registration = None
-        logger.info("No ACME registration found in secret %s", reg_name)
-
-    return jwk, registration
-
-
-def store_registration(config: Config, secret_client: SecretClient, registration: messages.RegistrationResource) -> None:
-    _, reg_name = account_secret_names(config.acme_email)
-    secret_client.set_secret(reg_name, registration.json_dumps())
-    logger.info("Stored ACME registration in secret %s", reg_name)
-
-
-def create_acme_client(
-    config: Config,
-    jwk: JWKRSA,
-    registration: Optional[messages.RegistrationResource],
-) -> Tuple[client.ClientV2, client.ClientNetwork]:
-    net = client.ClientNetwork(jwk, account=registration, user_agent=USER_AGENT)
-    directory = client.ClientV2.get_directory(config.acme_directory_url, net)
-    acme_client = client.ClientV2(directory, net)
-    return acme_client, net
-
-
-def ensure_registration(
-    config: Config,
-    secret_client: SecretClient,
-    acme_client: client.ClientV2,
-    net: client.ClientNetwork,
-    registration: Optional[messages.RegistrationResource],
-) -> messages.RegistrationResource:
-    if registration:
-        net.account = registration
-        logger.info("Using existing ACME registration for %s", config.acme_email)
-        return registration
-    new_registration = acme_client.new_account(
-        messages.NewRegistration.from_data(
-            email=config.acme_email,
-            terms_of_service_agreed=True,
-        )
-    )
-    net.account = new_registration
-    store_registration(config, secret_client, new_registration)
-    logger.info("Created new ACME registration for %s", config.acme_email)
-    return new_registration
-
-
-def list_target_zones(config: Config, dns_client: DnsManagementClient) -> List[str]:
-    zones: List[str] = []
-    allowed = {z.lower() for z in config.dns_zones} if config.dns_zones else None
-    for zone in dns_client.zones.list_by_resource_group(config.resource_group):
-        name = zone.name.rstrip(".")
-        if allowed and name.lower() not in allowed:
-            continue
-        zones.append(name)
-    logger.info("Found %d Azure DNS zone(s) to process", len(zones))
-    return zones
-
-
-def list_acme_enabled_records(
-    dns_client: DnsManagementClient,
-    config: Config,
-    zone_name: str,
-) -> List[RecordSet]:
-    records: List[RecordSet] = []
-    for record_type in ("A", "CNAME"):
-        for record in dns_client.record_sets.list_by_type(config.resource_group, zone_name, record_type):
-            metadata = (record.metadata or {})
-            if metadata.get("acme", "").lower() == "true":
-                records.append(record)
-    logger.info("Zone %s has %d ACME-enabled record(s)", zone_name, len(records))
-    return records
-
-
 def certificate_name_for_domain(domain: str) -> str:
     pieces: List[str] = []
     for ch in domain.lower():
@@ -528,4 +526,3 @@ def import_certificate_bundle(
         certificate_bytes=bundle.encode("utf-8"),
         tags=tags,
     )
-

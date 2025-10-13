@@ -9,16 +9,7 @@ from azure.keyvault.certificates import CertificateClient
 from azure.keyvault.secrets import SecretClient
 from azure.mgmt.dns import DnsManagementClient
 
-from provisioner import (
-    ProvisioningResult,
-    build_config_from_env,
-    create_acme_client,
-    ensure_acme_account,
-    ensure_registration,
-    list_acme_enabled_records,
-    list_target_zones,
-    get_credential,
-)
+from provisioner import ProvisioningResult, build_config_from_env, get_credential
 
 
 def configure_logging() -> logging.Logger:
@@ -77,11 +68,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     jwk = None
 
     if not config.dry_run:
-        jwk, registration = ensure_acme_account(config, secret_client)
-        acme_client, net = create_acme_client(config, jwk, registration)
-        registration = ensure_registration(config, secret_client, acme_client, net, registration)
+        jwk, registration = config.ensure_acme_account(secret_client)
+        acme_client, net = config.create_acme_client(jwk, registration)
+        registration = config.ensure_registration(secret_client, acme_client, net, registration)
 
-    zones = list_target_zones(config, dns_client)
+    zones = config.list_target_zones(dns_client)
     if not zones:
         logger.info("No DNS zones found for resource group %s", config.resource_group)
         return 0
@@ -90,7 +81,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     failures = 0
 
     for zone_name in zones:
-        records = list_acme_enabled_records(dns_client, config, zone_name)
+        records = config.list_acme_enabled_records(dns_client, zone_name)
         if not records:
             logger.info("Zone %s has no ACME-enabled A or CNAME records", zone_name)
             continue
