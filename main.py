@@ -22,21 +22,26 @@ def main(argv: Optional[List[str]] = None) -> int:
     level_name = os.environ.get("LOG_LEVEL", "INFO").upper()
 
     # Configure basic console logging
-    logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s')
+    logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=level_name)
+
+    # Drop noisy logs from Azure SDK
+    logging.getLogger("azure").setLevel(logging.WARNING)
+    logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(logging.ERROR)
+
 
     # Set log level for the root logger and specific loggers
-    logger = logging.getLogger(__name__)
-    logger.setLevel(level_name)
-    logging.getLogger("provisioner").setLevel(level_name)
+    # logger = logging.getLogger(__name__)
+    # logger.setLevel(level_name)
+    # logging.getLogger("provisioner").setLevel(level_name)
 
     try:
         provisioner = Provisioner(os.environ, dry_run=args.dry_run)
     except ValueError as exc:
-        logger.error("%s", exc)
+        logging.error("%s", exc)
         return 2
 
     if provisioner.dry_run:
-        logger.info("Dry run enabled; no changes will be made.")
+        logging.info("Dry run enabled; no changes will be made.")
     else:
         provisioner.prepare_acme_client()
 
@@ -46,11 +51,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
 
     if failures:
-        logger.error("Provisioning completed with %d failure(s)", failures)
+        logging.error("Provisioning completed with %d failure(s)", failures)
         return 1
 
     if not results:
-        logger.info("No certificates created or renewed; all eligible records are up to date.")
+        logging.info("No certificates created or renewed; all eligible records are up to date.")
     return 0
 
 

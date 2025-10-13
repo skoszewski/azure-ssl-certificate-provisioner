@@ -29,10 +29,6 @@ DEFAULT_PROPAGATION_INTERVAL = 6
 DEFAULT_ORDER_TIMEOUT = 300
 
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
-
 class Provisioner:
     acme_email: str
     subscription_id: str
@@ -131,7 +127,7 @@ class Provisioner:
         try:
             key_secret = self._secret_client.get_secret(key_name)
             key_value = key_secret.value
-            logger.info("Loaded existing ACME account key from secret %s", key_name)
+            logging.info("Loaded existing ACME account key from secret %s", key_name)
         except ResourceNotFoundError:
             key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
             key_bytes = key.private_bytes(
@@ -141,7 +137,7 @@ class Provisioner:
             )
             key_value = key_bytes.decode("utf-8")
             self._secret_client.set_secret(key_name, key_value)
-            logger.info("Generated new ACME account key and stored in secret %s", key_name)
+            logging.info("Generated new ACME account key and stored in secret %s", key_name)
 
         private_key = serialization.load_pem_private_key(key_value.encode("utf-8"), password=None)
         jwk = JWKRSA(key=private_key)
@@ -150,10 +146,10 @@ class Provisioner:
         try:
             reg_secret = self._secret_client.get_secret(reg_name)
             registration = messages.RegistrationResource.json_loads(reg_secret.value)
-            logger.info("Loaded existing ACME registration from secret %s", reg_name)
+            logging.info("Loaded existing ACME registration from secret %s", reg_name)
         except ResourceNotFoundError:
             registration = None
-            logger.info("No ACME registration found in secret %s", reg_name)
+            logging.info("No ACME registration found in secret %s", reg_name)
 
         self._registration = registration
 
@@ -165,7 +161,7 @@ class Provisioner:
             raise RuntimeError("Secret client not bound to configuration")
         _, reg_name = account_secret_names(self.acme_email)
         self._secret_client.set_secret(reg_name, registration.json_dumps())
-        logger.info("Stored ACME registration in secret %s", reg_name)
+        logging.info("Stored ACME registration in secret %s", reg_name)
 
     def _create_acme_client(
         self,
@@ -191,7 +187,7 @@ class Provisioner:
             raise RuntimeError("ACME client not initialized")
         if self._registration:
             self._net.account = self._registration
-            logger.info("Using existing ACME registration for %s", self.acme_email)
+            logging.info("Using existing ACME registration for %s", self.acme_email)
             return
         new_registration = self._acme_client.new_account(
             messages.NewRegistration.from_data(
@@ -201,7 +197,7 @@ class Provisioner:
         )
         self._net.account = new_registration
         self._store_registration(new_registration)
-        logger.info("Created new ACME registration for %s", self.acme_email)
+        logging.info("Created new ACME registration for %s", self.acme_email)
         self._registration = new_registration
 
     def prepare_acme_client(self) -> None:
@@ -219,7 +215,7 @@ class Provisioner:
             if allowed and name.lower() not in allowed:
                 continue
             zones.append(name)
-        logger.info("Found %d Azure DNS zone(s) to process", len(zones))
+        logging.info("Found %d Azure DNS zone(s) to process", len(zones))
         return zones
 
     def _list_acme_enabled_records(
@@ -234,13 +230,13 @@ class Provisioner:
                 metadata = (record.metadata or {})
                 if metadata.get("acme", "").lower() == "true":
                     records.append(record)
-        logger.info("Zone %s has %d ACME-enabled record(s)", zone_name, len(records))
+        logging.info("Zone %s has %d ACME-enabled record(s)", zone_name, len(records))
         return records
 
     def process_zones(self) -> Tuple[List["ProvisioningResult"], int, bool]:
         zones = self._list_target_zones()
         if not zones:
-            logger.info("No DNS zones found for resource group %s", self.resource_group)
+            logging.info("No DNS zones found for resource group %s", self.resource_group)
             return [], 0, False
 
         results: List[ProvisioningResult] = []
@@ -249,18 +245,18 @@ class Provisioner:
         for zone_name in zones:
             records = self._list_acme_enabled_records(zone_name)
             if not records:
-                logger.info("Zone %s has no ACME-enabled A or CNAME records", zone_name)
+                logging.info("Zone %s has no ACME-enabled A or CNAME records", zone_name)
                 continue
-            logger.info("Processing zone %s (%d records)", zone_name, len(records))
+            logging.info("Processing zone %s (%d records)", zone_name, len(records))
             for record in records:
                 fqdn = record.fqdn.rstrip(".")
                 try:
                     result = self._provision_certificate_for_record(zone_name, record)
                     results.append(result)
-                    logger.info("%s: %s (%s)", fqdn, result.action.upper(), result.message)
+                    logging.info("%s: %s (%s)", fqdn, result.action.upper(), result.message)
                 except Exception as exc:  # pylint: disable=broad-except
                     failures += 1
-                    logger.exception("Failed to process %s in zone %s: %s", fqdn, zone_name, exc)
+                    logging.exception("Failed to process %s in zone %s: %s", fqdn, zone_name, exc)
 
         return results, failures, True
 
@@ -274,12 +270,12 @@ class Provisioner:
 
         domain = record.fqdn.rstrip(".")
         certificate_name = certificate_name_for_domain(domain)
-        logger.info("Processing %s (certificate %s)", domain, certificate_name)
+        logging.info("Processing %s (certificate %s)", domain, certificate_name)
 
         has_cert, expires_on = get_certificate_state(self._certificate_client, certificate_name)
         if has_cert and not needs_renewal(expires_on, self.cert_expiry_threshold_days):
             expires_str = expires_on.isoformat() if expires_on else "unknown"
-            logger.info("Certificate %s valid until %s; skipping", certificate_name, expires_str)
+            logging.info("Certificate %s valid until %s; skipping", certificate_name, expires_str)
             return ProvisioningResult(
                 fqdn=domain,
                 certificate_name=certificate_name,
@@ -294,11 +290,11 @@ class Provisioner:
                     f"Dry run: certificate expires on {expires_str}; would renew and import updated chain into Key Vault"
                 )
                 action = "would-renew"
-                logger.info("Dry run: would renew certificate %s expiring %s", certificate_name, expires_str)
+                logging.info("Dry run: would renew certificate %s expiring %s", certificate_name, expires_str)
             else:
                 message = "Dry run: no existing certificate; would request new certificate and import into Key Vault"
                 action = "would-create"
-                logger.info("Dry run: would create new certificate %s", certificate_name)
+                logging.info("Dry run: would create new certificate %s", certificate_name)
             return ProvisioningResult(
                 fqdn=domain,
                 certificate_name=certificate_name,
@@ -313,9 +309,9 @@ class Provisioner:
             self._net.account = self._registration
 
         private_key_pem, csr_pem = generate_domain_key_and_csr(domain)
-        logger.info("Generated domain key and CSR for %s", domain)
+        logging.info("Generated domain key and CSR for %s", domain)
         order = self._acme_client.new_order(csr_pem)
-        logger.info("Created ACME order for %s with %d authorization(s)", domain, len(order.authorizations))
+        logging.info("Created ACME order for %s with %d authorization(s)", domain, len(order.authorizations))
 
         published: List[Tuple[str, str]] = []
 
@@ -348,24 +344,24 @@ class Provisioner:
                     interval=self.propagation_interval,
                 )
                 self._acme_client.answer_challenge(dns_challenge, dns_challenge.chall.response(self._jwk))
-                logger.info("Answered DNS-01 challenge for identifier %s", identifier)
+                logging.info("Answered DNS-01 challenge for identifier %s", identifier)
 
             deadline = _dt.datetime.now() + _dt.timedelta(seconds=self.order_timeout)
             order = self._acme_client.poll_authorizations(order, deadline)
-            logger.info("All authorizations valid for %s; finalizing order", domain)
+            logging.info("All authorizations valid for %s; finalizing order", domain)
             finalize_success = False
             attempt = 0
             last_error: Optional[messages.Error] = None
             while attempt < 3 and not finalize_success:
                 attempt += 1
                 try:
-                    logger.info("Finalizing order for %s (attempt %d)", domain, attempt)
+                    logging.info("Finalizing order for %s (attempt %d)", domain, attempt)
                     order = self._acme_client.finalize_order(order, deadline)
                     finalize_success = True
                 except messages.Error as err:
                     last_error = err
                     error_detail = err.detail or str(err)
-                    logger.warning(
+                    logging.warning(
                         "Finalize attempt %d failed for %s [%s]: %s",
                         attempt,
                         domain,
@@ -374,7 +370,7 @@ class Provisioner:
                     )
                     if err.typ == "urn:ietf:params:acme:error:caa" and attempt < 3:
                         sleep_duration = 5 * attempt
-                        logger.info(
+                        logging.info(
                             "Retrying finalize for %s after %d seconds due to CAA check failure", domain, sleep_duration
                         )
                         time.sleep(sleep_duration)
@@ -387,7 +383,7 @@ class Provisioner:
                         f"ACME finalize failed for {domain}: {getattr(last_error, 'typ', 'unknown')} - {error_detail}"
                     ) from last_error
                 raise RuntimeError(f"ACME finalize failed for {domain}: unknown error")
-            logger.info("Finalized order for %s; importing certificate into Key Vault", domain)
+            logging.info("Finalized order for %s; importing certificate into Key Vault", domain)
 
             import_certificate_bundle(
                 self._certificate_client,
@@ -398,7 +394,7 @@ class Provisioner:
             )
 
             action = "renewed" if has_cert else "created"
-            logger.info("Successfully %s certificate %s", action, certificate_name)
+            logging.info("Successfully %s certificate %s", action, certificate_name)
             return ProvisioningResult(
                 fqdn=domain,
                 certificate_name=certificate_name,
@@ -493,7 +489,7 @@ def create_or_merge_txt_record(
     value: str,
     ttl: int,
 ) -> None:
-    logger.info("Publishing TXT record %s.%s for ACME validation", record_name, zone_name)
+    logging.info("Publishing TXT record %s.%s for ACME validation", record_name, zone_name)
     try:
         current = dns_client.record_sets.get(resource_group, zone_name, record_name, "TXT")
         values = [v.value[0] for v in (current.txt_records or []) if v.value]
@@ -515,7 +511,7 @@ def delete_txt_value_or_recordset(
     try:
         current = dns_client.record_sets.get(resource_group, zone_name, record_name, "TXT")
     except Exception:
-        logger.info("TXT record %s.%s already absent", record_name, zone_name)
+        logging.info("TXT record %s.%s already absent", record_name, zone_name)
         return
     values = [v.value[0] for v in (current.txt_records or []) if v.value]
     if value in values:
@@ -523,10 +519,10 @@ def delete_txt_value_or_recordset(
     if values:
         params = RecordSet(ttl=current.ttl, txt_records=[TxtRecord(value=[v]) for v in values])
         dns_client.record_sets.create_or_update(resource_group, zone_name, record_name, "TXT", params)
-        logger.info("Removed ACME validation value from TXT record %s.%s", record_name, zone_name)
+        logging.info("Removed ACME validation value from TXT record %s.%s", record_name, zone_name)
     else:
         dns_client.record_sets.delete(resource_group, zone_name, record_name, "TXT")
-        logger.info("Deleted TXT record %s.%s after challenge completion", record_name, zone_name)
+        logging.info("Deleted TXT record %s.%s after challenge completion", record_name, zone_name)
 
 
 def wait_for_dns_txt(
@@ -535,7 +531,7 @@ def wait_for_dns_txt(
     timeout: int,
     interval: int,
 ) -> None:
-    logger.info("Waiting for TXT %s to contain ACME value", fqdn)
+    logging.info("Waiting for TXT %s to contain ACME value", fqdn)
     resolvers = []
     for nameservers in (["1.1.1.1", "1.0.0.1"], ["8.8.8.8", "8.8.4.4"]):
         resolver = dns.resolver.Resolver(configure=False)
@@ -551,7 +547,7 @@ def wait_for_dns_txt(
                 answer = resolver.resolve(fqdn, "TXT")
                 values = {b"".join(rdata.strings).decode("utf-8") for rdata in answer}
                 if expected in values:
-                    logger.info("Found expected ACME TXT value for %s", fqdn)
+                    logging.info("Found expected ACME TXT value for %s", fqdn)
                     return
             except Exception:
                 pass
