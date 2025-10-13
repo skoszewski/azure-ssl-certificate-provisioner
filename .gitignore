@@ -1,2 +1,6 @@
 # Pyton virtual environment
 .venv
+
+# Markdown temporary notes
+*.md
+!README.md
