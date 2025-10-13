@@ -105,34 +105,19 @@ class Config:
         self._credential = None
         self._registration = None
 
-    def bind_service_clients(
-        self,
-        dns_client: DnsManagementClient,
-        certificate_client: CertificateClient,
-        secret_client: SecretClient,
-        credential: Optional[ChainedTokenCredential] = None,
-    ) -> None:
-        self._dns_client = dns_client
-        self._certificate_client = certificate_client
-        self._secret_client = secret_client
-        if credential is not None:
-            self._credential = credential
-
-    def initialize_clients(self, credential_type: str = "default") -> ChainedTokenCredential:
+    def initialize_clients(self, credential_type: str = "default") -> None:
         if (
-            self._dns_client is not None
-            and self._certificate_client is not None
+            self._credential is not None
             and self._secret_client is not None
-            and self._credential is not None
+            and self._certificate_client is not None
+            and self._dns_client is not None
         ):
-            return self._credential
+            return
 
-        credential = get_credential(credential_type)
-        secret_client = SecretClient(vault_url=self.key_vault_url, credential=credential)
-        certificate_client = CertificateClient(vault_url=self.key_vault_url, credential=credential)
-        dns_client = DnsManagementClient(credential=credential, subscription_id=self.subscription_id)
-        self.bind_service_clients(dns_client, certificate_client, secret_client, credential=credential)
-        return credential
+        self._credential = get_credential(credential_type)
+        self._secret_client = SecretClient(vault_url=self.key_vault_url, credential=self._credential)
+        self._certificate_client = CertificateClient(vault_url=self.key_vault_url, credential=self._credential)
+        self._dns_client = DnsManagementClient(credential=self._credential, subscription_id=self.subscription_id)
 
     def ensure_acme_account(self) -> Tuple[JWKRSA, Optional[messages.RegistrationResource]]:
         if self._secret_client is None:
