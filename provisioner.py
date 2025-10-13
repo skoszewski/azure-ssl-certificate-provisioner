@@ -4,6 +4,7 @@ import datetime as _dt
 import time
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+import logging
 
 from acme import challenges, client, messages
 from azure.core.exceptions import ResourceNotFoundError
@@ -27,6 +28,8 @@ DEFAULT_PROPAGATION_TIMEOUT = 420
 DEFAULT_PROPAGATION_INTERVAL = 6
 DEFAULT_ORDER_TIMEOUT = 300
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 @dataclass
 class Config:
@@ -113,6 +116,7 @@ def ensure_acme_account(
     try:
         key_secret = secret_client.get_secret(key_name)
         key_value = key_secret.value
+        logger.info("Loaded existing ACME account key from secret %s", key_name)
     except ResourceNotFoundError:
         key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         key_bytes = key.private_bytes(
@@ -122,6 +126,7 @@ def ensure_acme_account(
         )
         key_value = key_bytes.decode("utf-8")
         secret_client.set_secret(key_name, key_value)
+        logger.info("Generated new ACME account key and stored in secret %s", key_name)
 
     private_key = serialization.load_pem_private_key(key_value.encode("utf-8"), password=None)
     jwk = JWKRSA(key=private_key)
@@ -129,8 +134,10 @@ def ensure_acme_account(
     try:
         reg_secret = secret_client.get_secret(reg_name)
         registration = messages.RegistrationResource.json_loads(reg_secret.value)
+        logger.info("Loaded existing ACME registration from secret %s", reg_name)
     except ResourceNotFoundError:
         registration = None
+        logger.info("No ACME registration found in secret %s", reg_name)
 
     return jwk, registration
 
@@ -138,6 +145,7 @@ def ensure_acme_account(
 def store_registration(config: Config, secret_client: SecretClient, registration: messages.RegistrationResource) -> None:
     _, reg_name = account_secret_names(config.acme_email)
     secret_client.set_secret(reg_name, registration.json_dumps())
+    logger.info("Stored ACME registration in secret %s", reg_name)
 
 
 def create_acme_client(
@@ -160,6 +168,7 @@ def ensure_registration(
 ) -> messages.RegistrationResource:
     if registration:
         net.account = registration
+        logger.info("Using existing ACME registration for %s", config.acme_email)
         return registration
     new_registration = acme_client.new_account(
         messages.NewRegistration.from_data(
@@ -169,6 +178,7 @@ def ensure_registration(
     )
     net.account = new_registration
     store_registration(config, secret_client, new_registration)
+    logger.info("Created new ACME registration for %s", config.acme_email)
     return new_registration
 
 
@@ -180,6 +190,7 @@ def list_target_zones(config: Config, dns_client: DnsManagementClient) -> List[s
         if allowed and name.lower() not in allowed:
             continue
         zones.append(name)
+    logger.info("Found %d Azure DNS zone(s) to process", len(zones))
     return zones
 
 
@@ -194,6 +205,7 @@ def list_acme_enabled_records(
             metadata = (record.metadata or {})
             if metadata.get("acme", "").lower() == "true":
                 records.append(record)
+    logger.info("Zone %s has %d ACME-enabled record(s)", zone_name, len(records))
     return records
 
 
@@ -255,6 +267,7 @@ def create_or_merge_txt_record(
     value: str,
     ttl: int,
 ) -> None:
+    logger.info("Publishing TXT record %s.%s for ACME validation", record_name, zone_name)
     try:
         current = dns_client.record_sets.get(resource_group, zone_name, record_name, "TXT")
         values = [v.value[0] for v in (current.txt_records or []) if v.value]
@@ -276,6 +289,7 @@ def delete_txt_value_or_recordset(
     try:
         current = dns_client.record_sets.get(resource_group, zone_name, record_name, "TXT")
     except Exception:
+        logger.info("TXT record %s.%s already absent", record_name, zone_name)
         return
     values = [v.value[0] for v in (current.txt_records or []) if v.value]
     if value in values:
@@ -283,8 +297,10 @@ def delete_txt_value_or_recordset(
     if values:
         params = RecordSet(ttl=current.ttl, txt_records=[TxtRecord(value=[v]) for v in values])
         dns_client.record_sets.create_or_update(resource_group, zone_name, record_name, "TXT", params)
+        logger.info("Removed ACME validation value from TXT record %s.%s", record_name, zone_name)
     else:
         dns_client.record_sets.delete(resource_group, zone_name, record_name, "TXT")
+        logger.info("Deleted TXT record %s.%s after challenge completion", record_name, zone_name)
 
 
 def wait_for_dns_txt(
@@ -293,6 +309,7 @@ def wait_for_dns_txt(
     timeout: int,
     interval: int,
 ) -> None:
+    logger.info("Waiting for TXT %s to contain ACME value", fqdn)
     resolvers = []
     for nameservers in (["1.1.1.1", "1.0.0.1"], ["8.8.8.8", "8.8.4.4"]):
         resolver = dns.resolver.Resolver(configure=False)
@@ -308,6 +325,7 @@ def wait_for_dns_txt(
                 answer = resolver.resolve(fqdn, "TXT")
                 values = {b"".join(rdata.strings).decode("utf-8") for rdata in answer}
                 if expected in values:
+                    logger.info("Found expected ACME TXT value for %s", fqdn)
                     return
             except Exception:
                 pass
@@ -363,10 +381,12 @@ def provision_certificate_for_record(
 ) -> ProvisioningResult:
     domain = record.fqdn.rstrip(".")
     certificate_name = certificate_name_for_domain(domain)
+    logger.info("Processing %s (certificate %s)", domain, certificate_name)
 
     has_cert, expires_on = get_certificate_state(certificate_client, certificate_name)
     if has_cert and not needs_renewal(expires_on, config.cert_expiry_threshold_days):
         expires_str = expires_on.isoformat() if expires_on else "unknown"
+        logger.info("Certificate %s valid until %s; skipping", certificate_name, expires_str)
         return ProvisioningResult(
             fqdn=domain,
             certificate_name=certificate_name,
@@ -381,9 +401,11 @@ def provision_certificate_for_record(
                 f"Dry run: certificate expires on {expires_str}; would renew and import updated chain into Key Vault"
             )
             action = "would-renew"
+            logger.info("Dry run: would renew certificate %s expiring %s", certificate_name, expires_str)
         else:
             message = "Dry run: no existing certificate; would request new certificate and import into Key Vault"
             action = "would-create"
+            logger.info("Dry run: would create new certificate %s", certificate_name)
         return ProvisioningResult(
             fqdn=domain,
             certificate_name=certificate_name,
@@ -398,7 +420,9 @@ def provision_certificate_for_record(
         net.account = registration
 
     private_key_pem, csr_pem = generate_domain_key_and_csr(domain)
+    logger.info("Generated domain key and CSR for %s", domain)
     order = acme_client.new_order(csr_pem)
+    logger.info("Created ACME order for %s with %d authorization(s)", domain, len(order.authorizations))
 
     published: List[Tuple[str, str]] = []
 
@@ -429,10 +453,13 @@ def provision_certificate_for_record(
                 interval=config.propagation_interval,
             )
             acme_client.answer_challenge(dns_challenge, dns_challenge.chall.response(jwk))
+            logger.info("Answered DNS-01 challenge for identifier %s", identifier)
 
         deadline = _dt.datetime.now() + _dt.timedelta(seconds=config.order_timeout)
         order = acme_client.poll_authorizations(order, deadline)
+        logger.info("All authorizations valid for %s; finalizing order", domain)
         order = acme_client.finalize_order(order, deadline)
+        logger.info("Finalized order for %s; importing certificate into Key Vault", domain)
 
         import_certificate_bundle(
             certificate_client,
@@ -443,6 +470,7 @@ def provision_certificate_for_record(
         )
 
         action = "renewed" if has_cert else "created"
+        logger.info("Successfully %s certificate %s", action, certificate_name)
         return ProvisioningResult(
             fqdn=domain,
             certificate_name=certificate_name,

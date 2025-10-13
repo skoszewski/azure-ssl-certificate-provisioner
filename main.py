@@ -26,13 +26,21 @@ def configure_logging() -> logging.Logger:
     level_name = os.environ.get("LOG_LEVEL", "INFO").upper()
     level = getattr(logging, level_name, logging.INFO)
 
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+    handler.setFormatter(formatter)
+
     logger = logging.getLogger(__name__)
     if not logger.handlers:
-        handler = logging.StreamHandler()
-        formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
-        handler.setFormatter(formatter)
         logger.addHandler(handler)
     logger.setLevel(level)
+
+    provisioner_logger = logging.getLogger("provisioner")
+    if not provisioner_logger.handlers:
+        provisioner_logger.addHandler(handler)
+    provisioner_logger.setLevel(level)
+    provisioner_logger.propagate = False
+
     return logger
 
 
