@@ -22,9 +22,18 @@ from provisioner import (
 )
 
 
-def configure_logging() -> None:
-    level = getattr(logging, os.environ.get("LOG_LEVEL", "INFO").upper(), logging.INFO)
-    logging.basicConfig(level=level, format="%(asctime)s %(levelname)s %(message)s")
+def configure_logging() -> logging.Logger:
+    level_name = os.environ.get("LOG_LEVEL", "INFO").upper()
+    level = getattr(logging, level_name, logging.INFO)
+
+    logger = logging.getLogger(__name__)
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+    logger.setLevel(level)
+    return logger
 
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
@@ -39,16 +48,16 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
 
 def main(argv: Optional[List[str]] = None) -> int:
     args = parse_args(argv)
-    configure_logging()
+    logger = configure_logging()
 
     try:
         config = build_config_from_env(os.environ, dry_run=args.dry_run)
     except ValueError as exc:
-        logging.error("%s", exc)
+        logger.error("%s", exc)
         return 2
 
     if config.dry_run:
-        logging.info("Dry run enabled; no changes will be made.")
+        logger.info("Dry run enabled; no changes will be made.")
 
     credential = default_credential()
     secret_client = SecretClient(vault_url=config.key_vault_url, credential=credential)
@@ -67,7 +76,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     zones = list_target_zones(config, dns_client)
     if not zones:
-        logging.info("No DNS zones found for resource group %s", config.resource_group)
+        logger.info("No DNS zones found for resource group %s", config.resource_group)
         return 0
 
     results: List[ProvisioningResult] = []
@@ -76,9 +85,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     for zone_name in zones:
         records = list_acme_enabled_records(dns_client, config, zone_name)
         if not records:
-            logging.info("Zone %s has no ACME-enabled A or CNAME records", zone_name)
+            logger.info("Zone %s has no ACME-enabled A or CNAME records", zone_name)
             continue
-        logging.info("Processing zone %s (%d records)", zone_name, len(records))
+        logger.info("Processing zone %s (%d records)", zone_name, len(records))
         for record in records:
             fqdn = record.fqdn.rstrip(".")
             try:
@@ -94,7 +103,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                     record,
                 )
                 results.append(result)
-                logging.info(
+                logger.info(
                     "%s: %s (%s)",
                     fqdn,
                     result.action.upper(),
@@ -102,14 +111,14 @@ def main(argv: Optional[List[str]] = None) -> int:
                 )
             except Exception as exc:  # pylint: disable=broad-except
                 failures += 1
-                logging.exception("Failed to process %s in zone %s: %s", fqdn, zone_name, exc)
+                logger.exception("Failed to process %s in zone %s: %s", fqdn, zone_name, exc)
 
     if failures:
-        logging.error("Provisioning completed with %d failure(s)", failures)
+        logger.error("Provisioning completed with %d failure(s)", failures)
         return 1
 
     if not results:
-        logging.info("No certificates created or renewed; all eligible records are up to date.")
+        logger.info("No certificates created or renewed; all eligible records are up to date.")
     return 0
 
 
