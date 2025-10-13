@@ -123,12 +123,11 @@ class Provisioner:
         if self._secret_client is None:
             raise RuntimeError("Secret client not bound to configuration")
 
-        secret_client = self._secret_client
         key_name, reg_name = account_secret_names(self.acme_email)
         key_value: Optional[str] = None
 
         try:
-            key_secret = secret_client.get_secret(key_name)
+            key_secret = self._secret_client.get_secret(key_name)
             key_value = key_secret.value
             logger.info("Loaded existing ACME account key from secret %s", key_name)
         except ResourceNotFoundError:
@@ -139,7 +138,7 @@ class Provisioner:
                 serialization.NoEncryption(),
             )
             key_value = key_bytes.decode("utf-8")
-            secret_client.set_secret(key_name, key_value)
+            self._secret_client.set_secret(key_name, key_value)
             logger.info("Generated new ACME account key and stored in secret %s", key_name)
 
         private_key = serialization.load_pem_private_key(key_value.encode("utf-8"), password=None)
@@ -147,7 +146,7 @@ class Provisioner:
         self._jwk = jwk
 
         try:
-            reg_secret = secret_client.get_secret(reg_name)
+            reg_secret = self._secret_client.get_secret(reg_name)
             registration = messages.RegistrationResource.json_loads(reg_secret.value)
             logger.info("Loaded existing ACME registration from secret %s", reg_name)
         except ResourceNotFoundError:
@@ -162,9 +161,8 @@ class Provisioner:
     ) -> None:
         if self._secret_client is None:
             raise RuntimeError("Secret client not bound to configuration")
-        secret_client = self._secret_client
         _, reg_name = account_secret_names(self.acme_email)
-        secret_client.set_secret(reg_name, registration.json_dumps())
+        self._secret_client.set_secret(reg_name, registration.json_dumps())
         logger.info("Stored ACME registration in secret %s", reg_name)
 
     def _create_acme_client(
@@ -172,8 +170,7 @@ class Provisioner:
         jwk: Optional[JWKRSA] = None,
         registration: Optional[messages.RegistrationResource] = None,
     ) -> None:
-        if jwk is None:
-            jwk = self._jwk
+        jwk = jwk or self._jwk
         if jwk is None:
             raise RuntimeError("ACME account key not initialized")
         account = registration if registration is not None else self._registration
@@ -188,22 +185,19 @@ class Provisioner:
     ) -> None:
         if self._secret_client is None:
             raise RuntimeError("Secret client not bound to configuration")
-        acme_client = self._acme_client
-        net = self._net
-        if acme_client is None or net is None:
+        if self._acme_client is None or self._net is None:
             raise RuntimeError("ACME client not initialized")
-        registration = self._registration
-        if registration:
-            net.account = registration
+        if self._registration:
+            self._net.account = self._registration
             logger.info("Using existing ACME registration for %s", self.acme_email)
             return
-        new_registration = acme_client.new_account(
+        new_registration = self._acme_client.new_account(
             messages.NewRegistration.from_data(
                 email=self.acme_email,
                 terms_of_service_agreed=True,
             )
         )
-        net.account = new_registration
+        self._net.account = new_registration
         self._store_registration(new_registration)
         logger.info("Created new ACME registration for %s", self.acme_email)
         self._registration = new_registration
@@ -276,14 +270,11 @@ class Provisioner:
         if self._certificate_client is None or self._dns_client is None:
             raise RuntimeError("Service clients not bound to configuration")
 
-        certificate_client = self._certificate_client
-        dns_client = self._dns_client
-
         domain = record.fqdn.rstrip(".")
         certificate_name = certificate_name_for_domain(domain)
         logger.info("Processing %s (certificate %s)", domain, certificate_name)
 
-        has_cert, expires_on = get_certificate_state(certificate_client, certificate_name)
+        has_cert, expires_on = get_certificate_state(self._certificate_client, certificate_name)
         if has_cert and not needs_renewal(expires_on, self.cert_expiry_threshold_days):
             expires_str = expires_on.isoformat() if expires_on else "unknown"
             logger.info("Certificate %s valid until %s; skipping", certificate_name, expires_str)
@@ -313,19 +304,15 @@ class Provisioner:
                 message=message,
             )
 
-        acme_client = self._acme_client
-        net = self._net
-        jwk = self._jwk
-        if net is None or acme_client is None or jwk is None:
+        if self._net is None or self._acme_client is None or self._jwk is None:
             raise RuntimeError("ACME client not initialized")
 
-        registration = self._registration
-        if net.account is None and registration is not None:
-            net.account = registration
+        if self._net.account is None and self._registration is not None:
+            self._net.account = self._registration
 
         private_key_pem, csr_pem = generate_domain_key_and_csr(domain)
         logger.info("Generated domain key and CSR for %s", domain)
-        order = acme_client.new_order(csr_pem)
+        order = self._acme_client.new_order(csr_pem)
         logger.info("Created ACME order for %s with %d authorization(s)", domain, len(order.authorizations))
 
         published: List[Tuple[str, str]] = []
@@ -339,11 +326,11 @@ class Provisioner:
                     if isinstance(chall_body.chall, challenges.DNS01)
                 )
                 txt_fqdn = dns_challenge.chall.validation_domain_name(identifier)
-                txt_value = dns_challenge.chall.validation(jwk)
+                txt_value = dns_challenge.chall.validation(self._jwk)
                 record_name = to_zone_relative(txt_fqdn, zone_name)
 
                 create_or_merge_txt_record(
-                    dns_client,
+                    self._dns_client,
                     self.resource_group,
                     zone_name,
                     record_name,
@@ -358,11 +345,11 @@ class Provisioner:
                     timeout=self.propagation_timeout,
                     interval=self.propagation_interval,
                 )
-                acme_client.answer_challenge(dns_challenge, dns_challenge.chall.response(jwk))
+                self._acme_client.answer_challenge(dns_challenge, dns_challenge.chall.response(self._jwk))
                 logger.info("Answered DNS-01 challenge for identifier %s", identifier)
 
             deadline = _dt.datetime.now() + _dt.timedelta(seconds=self.order_timeout)
-            order = acme_client.poll_authorizations(order, deadline)
+            order = self._acme_client.poll_authorizations(order, deadline)
             logger.info("All authorizations valid for %s; finalizing order", domain)
             finalize_success = False
             attempt = 0
@@ -371,7 +358,7 @@ class Provisioner:
                 attempt += 1
                 try:
                     logger.info("Finalizing order for %s (attempt %d)", domain, attempt)
-                    order = acme_client.finalize_order(order, deadline)
+                    order = self._acme_client.finalize_order(order, deadline)
                     finalize_success = True
                 except messages.Error as err:
                     last_error = err
@@ -401,7 +388,7 @@ class Provisioner:
             logger.info("Finalized order for %s; importing certificate into Key Vault", domain)
 
             import_certificate_bundle(
-                certificate_client,
+                self._certificate_client,
                 certificate_name,
                 private_key_pem,
                 order.fullchain_pem,
@@ -420,7 +407,7 @@ class Provisioner:
             for record_name, value in published:
                 try:
                     delete_txt_value_or_recordset(
-                        dns_client,
+                        self._dns_client,
                         self.resource_group,
                         zone_name,
                         record_name,
