@@ -56,9 +56,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     provisioner.initialize_clients()
 
     if not provisioner.dry_run:
-        provisioner.ensure_acme_account()
-        provisioner.create_acme_client()
-        provisioner.ensure_registration()
+        provisioner.prepare_acme_client()
 
     results, failures, zones_found = provisioner.process_zones()
 

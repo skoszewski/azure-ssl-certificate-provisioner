@@ -119,7 +119,7 @@ class Provisioner:
         self._certificate_client = CertificateClient(vault_url=self.key_vault_url, credential=self._credential)
         self._dns_client = DnsManagementClient(credential=self._credential, subscription_id=self.subscription_id)
 
-    def ensure_acme_account(self) -> Tuple[JWKRSA, Optional[messages.RegistrationResource]]:
+    def _ensure_acme_account(self) -> None:
         if self._secret_client is None:
             raise RuntimeError("Secret client not bound to configuration")
 
@@ -155,9 +155,8 @@ class Provisioner:
             logger.info("No ACME registration found in secret %s", reg_name)
 
         self._registration = registration
-        return jwk, registration
 
-    def store_registration(
+    def _store_registration(
         self,
         registration: messages.RegistrationResource,
     ) -> None:
@@ -168,11 +167,11 @@ class Provisioner:
         secret_client.set_secret(reg_name, registration.json_dumps())
         logger.info("Stored ACME registration in secret %s", reg_name)
 
-    def create_acme_client(
+    def _create_acme_client(
         self,
         jwk: Optional[JWKRSA] = None,
         registration: Optional[messages.RegistrationResource] = None,
-    ) -> Tuple[client.ClientV2, client.ClientNetwork]:
+    ) -> None:
         if jwk is None:
             jwk = self._jwk
         if jwk is None:
@@ -183,11 +182,10 @@ class Provisioner:
         acme_client = client.ClientV2(directory, net)
         self._acme_client = acme_client
         self._net = net
-        return acme_client, net
 
-    def ensure_registration(
+    def _ensure_registration(
         self,
-    ) -> messages.RegistrationResource:
+    ) -> None:
         if self._secret_client is None:
             raise RuntimeError("Secret client not bound to configuration")
         acme_client = self._acme_client
@@ -198,7 +196,7 @@ class Provisioner:
         if registration:
             net.account = registration
             logger.info("Using existing ACME registration for %s", self.acme_email)
-            return registration
+            return
         new_registration = acme_client.new_account(
             messages.NewRegistration.from_data(
                 email=self.acme_email,
@@ -206,12 +204,16 @@ class Provisioner:
             )
         )
         net.account = new_registration
-        self.store_registration(new_registration)
+        self._store_registration(new_registration)
         logger.info("Created new ACME registration for %s", self.acme_email)
         self._registration = new_registration
-        return new_registration
 
-    def list_target_zones(self) -> List[str]:
+    def prepare_acme_client(self) -> None:
+        self._ensure_acme_account()
+        self._create_acme_client()
+        self._ensure_registration()
+
+    def _list_target_zones(self) -> List[str]:
         if self._dns_client is None:
             raise RuntimeError("DNS client not bound to configuration")
         zones: List[str] = []
@@ -224,7 +226,7 @@ class Provisioner:
         logger.info("Found %d Azure DNS zone(s) to process", len(zones))
         return zones
 
-    def list_acme_enabled_records(
+    def _list_acme_enabled_records(
         self,
         zone_name: str,
     ) -> List[RecordSet]:
@@ -240,7 +242,7 @@ class Provisioner:
         return records
 
     def process_zones(self) -> Tuple[List["ProvisioningResult"], int, bool]:
-        zones = self.list_target_zones()
+        zones = self._list_target_zones()
         if not zones:
             logger.info("No DNS zones found for resource group %s", self.resource_group)
             return [], 0, False
@@ -249,7 +251,7 @@ class Provisioner:
         failures = 0
 
         for zone_name in zones:
-            records = self.list_acme_enabled_records(zone_name)
+            records = self._list_acme_enabled_records(zone_name)
             if not records:
                 logger.info("Zone %s has no ACME-enabled A or CNAME records", zone_name)
                 continue
@@ -257,7 +259,7 @@ class Provisioner:
             for record in records:
                 fqdn = record.fqdn.rstrip(".")
                 try:
-                    result = self.provision_certificate_for_record(zone_name, record)
+                    result = self._provision_certificate_for_record(zone_name, record)
                     results.append(result)
                     logger.info("%s: %s (%s)", fqdn, result.action.upper(), result.message)
                 except Exception as exc:  # pylint: disable=broad-except
@@ -266,7 +268,7 @@ class Provisioner:
 
         return results, failures, True
 
-    def provision_certificate_for_record(
+    def _provision_certificate_for_record(
         self,
         zone_name: str,
         record: RecordSet,
