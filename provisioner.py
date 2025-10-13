@@ -50,6 +50,8 @@ class Config:
     _dns_client: Optional[DnsManagementClient]
     _certificate_client: Optional[CertificateClient]
     _secret_client: Optional[SecretClient]
+    _credential: Optional[ChainedTokenCredential]
+    _registration: Optional[messages.RegistrationResource]
 
     def __init__(self, env: Dict[str, str], *, dry_run: bool = False) -> None:
         email = env.get("ACME_EMAIL")
@@ -100,16 +102,37 @@ class Config:
         self._dns_client = None
         self._certificate_client = None
         self._secret_client = None
+        self._credential = None
+        self._registration = None
 
     def bind_service_clients(
         self,
         dns_client: DnsManagementClient,
         certificate_client: CertificateClient,
         secret_client: SecretClient,
+        credential: Optional[ChainedTokenCredential] = None,
     ) -> None:
         self._dns_client = dns_client
         self._certificate_client = certificate_client
         self._secret_client = secret_client
+        if credential is not None:
+            self._credential = credential
+
+    def initialize_clients(self, credential_type: str = "default") -> ChainedTokenCredential:
+        if (
+            self._dns_client is not None
+            and self._certificate_client is not None
+            and self._secret_client is not None
+            and self._credential is not None
+        ):
+            return self._credential
+
+        credential = get_credential(credential_type)
+        secret_client = SecretClient(vault_url=self.key_vault_url, credential=credential)
+        certificate_client = CertificateClient(vault_url=self.key_vault_url, credential=credential)
+        dns_client = DnsManagementClient(credential=credential, subscription_id=self.subscription_id)
+        self.bind_service_clients(dns_client, certificate_client, secret_client, credential=credential)
+        return credential
 
     def ensure_acme_account(self) -> Tuple[JWKRSA, Optional[messages.RegistrationResource]]:
         if self._secret_client is None:
@@ -146,6 +169,7 @@ class Config:
             registration = None
             logger.info("No ACME registration found in secret %s", reg_name)
 
+        self._registration = registration
         return jwk, registration
 
     def store_registration(
@@ -161,10 +185,15 @@ class Config:
 
     def create_acme_client(
         self,
-        jwk: JWKRSA,
-        registration: Optional[messages.RegistrationResource],
+        jwk: Optional[JWKRSA] = None,
+        registration: Optional[messages.RegistrationResource] = None,
     ) -> Tuple[client.ClientV2, client.ClientNetwork]:
-        net = client.ClientNetwork(jwk, account=registration, user_agent=USER_AGENT)
+        if jwk is None:
+            jwk = self._jwk
+        if jwk is None:
+            raise RuntimeError("ACME account key not initialized")
+        account = registration if registration is not None else self._registration
+        net = client.ClientNetwork(jwk, account=account, user_agent=USER_AGENT)
         directory = client.ClientV2.get_directory(self.acme_directory_url, net)
         acme_client = client.ClientV2(directory, net)
         self._acme_client = acme_client
@@ -173,12 +202,14 @@ class Config:
 
     def ensure_registration(
         self,
-        acme_client: client.ClientV2,
-        net: client.ClientNetwork,
-        registration: Optional[messages.RegistrationResource],
     ) -> messages.RegistrationResource:
         if self._secret_client is None:
             raise RuntimeError("Secret client not bound to configuration")
+        acme_client = self._acme_client
+        net = self._net
+        if acme_client is None or net is None:
+            raise RuntimeError("ACME client not initialized")
+        registration = self._registration
         if registration:
             net.account = registration
             logger.info("Using existing ACME registration for %s", self.acme_email)
@@ -192,6 +223,7 @@ class Config:
         net.account = new_registration
         self.store_registration(new_registration)
         logger.info("Created new ACME registration for %s", self.acme_email)
+        self._registration = new_registration
         return new_registration
 
     def list_target_zones(self) -> List[str]:
@@ -222,9 +254,35 @@ class Config:
         logger.info("Zone %s has %d ACME-enabled record(s)", zone_name, len(records))
         return records
 
+    def process_zones(self) -> Tuple[List["ProvisioningResult"], int, bool]:
+        zones = self.list_target_zones()
+        if not zones:
+            logger.info("No DNS zones found for resource group %s", self.resource_group)
+            return [], 0, False
+
+        results: List[ProvisioningResult] = []
+        failures = 0
+
+        for zone_name in zones:
+            records = self.list_acme_enabled_records(zone_name)
+            if not records:
+                logger.info("Zone %s has no ACME-enabled A or CNAME records", zone_name)
+                continue
+            logger.info("Processing zone %s (%d records)", zone_name, len(records))
+            for record in records:
+                fqdn = record.fqdn.rstrip(".")
+                try:
+                    result = self.provision_certificate_for_record(zone_name, record)
+                    results.append(result)
+                    logger.info("%s: %s (%s)", fqdn, result.action.upper(), result.message)
+                except Exception as exc:  # pylint: disable=broad-except
+                    failures += 1
+                    logger.exception("Failed to process %s in zone %s: %s", fqdn, zone_name, exc)
+
+        return results, failures, True
+
     def provision_certificate_for_record(
         self,
-        registration: Optional[messages.RegistrationResource],
         zone_name: str,
         record: RecordSet,
     ) -> "ProvisioningResult":
@@ -274,6 +332,7 @@ class Config:
         if net is None or acme_client is None or jwk is None:
             raise RuntimeError("ACME client not initialized")
 
+        registration = self._registration
         if net.account is None and registration is not None:
             net.account = registration
 

@@ -5,11 +5,7 @@ import os
 import sys
 from typing import List, Optional
 
-from azure.keyvault.certificates import CertificateClient
-from azure.keyvault.secrets import SecretClient
-from azure.mgmt.dns import DnsManagementClient
-
-from provisioner import Config, ProvisioningResult, get_credential
+from provisioner import Config
 
 
 def configure_logging() -> logging.Logger:
@@ -57,47 +53,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     if config.dry_run:
         logger.info("Dry run enabled; no changes will be made.")
 
-    credential = get_credential()
-    secret_client = SecretClient(vault_url=config.key_vault_url, credential=credential)
-    certificate_client = CertificateClient(vault_url=config.key_vault_url, credential=credential)
-    dns_client = DnsManagementClient(credential=credential, subscription_id=config.subscription_id)
-    config.bind_service_clients(dns_client, certificate_client, secret_client)
-
-    registration = None
+    config.initialize_clients()
 
     if not config.dry_run:
-        jwk, registration = config.ensure_acme_account()
-        acme_client, net = config.create_acme_client(jwk, registration)
-        registration = config.ensure_registration(acme_client, net, registration)
+        config.ensure_acme_account()
+        config.create_acme_client()
+        config.ensure_registration()
 
-    zones = config.list_target_zones()
-    if not zones:
-        logger.info("No DNS zones found for resource group %s", config.resource_group)
+    results, failures, zones_found = config.process_zones()
+    if not zones_found:
         return 0
-
-    results: List[ProvisioningResult] = []
-    failures = 0
-
-    for zone_name in zones:
-        records = config.list_acme_enabled_records(zone_name)
-        if not records:
-            logger.info("Zone %s has no ACME-enabled A or CNAME records", zone_name)
-            continue
-        logger.info("Processing zone %s (%d records)", zone_name, len(records))
-        for record in records:
-            fqdn = record.fqdn.rstrip(".")
-            try:
-                result = config.provision_certificate_for_record(registration, zone_name, record)
-                results.append(result)
-                logger.info(
-                    "%s: %s (%s)",
-                    fqdn,
-                    result.action.upper(),
-                    result.message,
-                )
-            except Exception as exc:  # pylint: disable=broad-except
-                failures += 1
-                logger.exception("Failed to process %s in zone %s: %s", fqdn, zone_name, exc)
 
     if failures:
         logger.error("Provisioning completed with %d failure(s)", failures)
