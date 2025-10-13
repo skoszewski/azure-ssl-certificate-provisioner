@@ -61,18 +61,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     secret_client = SecretClient(vault_url=config.key_vault_url, credential=credential)
     certificate_client = CertificateClient(vault_url=config.key_vault_url, credential=credential)
     dns_client = DnsManagementClient(credential=credential, subscription_id=config.subscription_id)
+    config.bind_service_clients(dns_client, certificate_client, secret_client)
 
-    acme_client = None
-    net = None
     registration = None
-    jwk = None
 
     if not config.dry_run:
-        jwk, registration = config.ensure_acme_account(secret_client)
+        jwk, registration = config.ensure_acme_account()
         acme_client, net = config.create_acme_client(jwk, registration)
-        registration = config.ensure_registration(secret_client, acme_client, net, registration)
+        registration = config.ensure_registration(acme_client, net, registration)
 
-    zones = config.list_target_zones(dns_client)
+    zones = config.list_target_zones()
     if not zones:
         logger.info("No DNS zones found for resource group %s", config.resource_group)
         return 0
@@ -81,7 +79,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     failures = 0
 
     for zone_name in zones:
-        records = config.list_acme_enabled_records(dns_client, zone_name)
+        records = config.list_acme_enabled_records(zone_name)
         if not records:
             logger.info("Zone %s has no ACME-enabled A or CNAME records", zone_name)
             continue
@@ -89,16 +87,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         for record in records:
             fqdn = record.fqdn.rstrip(".")
             try:
-                result = config.provision_certificate_for_record(
-                    acme_client,
-                    net,
-                    jwk,
-                    dns_client,
-                    certificate_client,
-                    registration,
-                    zone_name,
-                    record,
-                )
+                result = config.provision_certificate_for_record(registration, zone_name, record)
                 results.append(result)
                 logger.info(
                     "%s: %s (%s)",

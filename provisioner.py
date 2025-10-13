@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime as _dt
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 import logging
 
@@ -45,11 +45,28 @@ class Config:
     propagation_interval: int = DEFAULT_PROPAGATION_INTERVAL
     order_timeout: int = DEFAULT_ORDER_TIMEOUT
     dry_run: bool = False
+    _acme_client: Optional[client.ClientV2] = field(init=False, default=None, repr=False)
+    _net: Optional[client.ClientNetwork] = field(init=False, default=None, repr=False)
+    _jwk: Optional[JWKRSA] = field(init=False, default=None, repr=False)
+    _dns_client: Optional[DnsManagementClient] = field(init=False, default=None, repr=False)
+    _certificate_client: Optional[CertificateClient] = field(init=False, default=None, repr=False)
+    _secret_client: Optional[SecretClient] = field(init=False, default=None, repr=False)
 
-    def ensure_acme_account(
+    def bind_service_clients(
         self,
+        dns_client: DnsManagementClient,
+        certificate_client: CertificateClient,
         secret_client: SecretClient,
-    ) -> Tuple[JWKRSA, Optional[messages.RegistrationResource]]:
+    ) -> None:
+        self._dns_client = dns_client
+        self._certificate_client = certificate_client
+        self._secret_client = secret_client
+
+    def ensure_acme_account(self) -> Tuple[JWKRSA, Optional[messages.RegistrationResource]]:
+        if self._secret_client is None:
+            raise RuntimeError("Secret client not bound to configuration")
+
+        secret_client = self._secret_client
         key_name, reg_name = account_secret_names(self.acme_email)
         key_value: Optional[str] = None
 
@@ -70,6 +87,7 @@ class Config:
 
         private_key = serialization.load_pem_private_key(key_value.encode("utf-8"), password=None)
         jwk = JWKRSA(key=private_key)
+        self._jwk = jwk
 
         try:
             reg_secret = secret_client.get_secret(reg_name)
@@ -83,9 +101,11 @@ class Config:
 
     def store_registration(
         self,
-        secret_client: SecretClient,
         registration: messages.RegistrationResource,
     ) -> None:
+        if self._secret_client is None:
+            raise RuntimeError("Secret client not bound to configuration")
+        secret_client = self._secret_client
         _, reg_name = account_secret_names(self.acme_email)
         secret_client.set_secret(reg_name, registration.json_dumps())
         logger.info("Stored ACME registration in secret %s", reg_name)
@@ -98,15 +118,18 @@ class Config:
         net = client.ClientNetwork(jwk, account=registration, user_agent=USER_AGENT)
         directory = client.ClientV2.get_directory(self.acme_directory_url, net)
         acme_client = client.ClientV2(directory, net)
+        self._acme_client = acme_client
+        self._net = net
         return acme_client, net
 
     def ensure_registration(
         self,
-        secret_client: SecretClient,
         acme_client: client.ClientV2,
         net: client.ClientNetwork,
         registration: Optional[messages.RegistrationResource],
     ) -> messages.RegistrationResource:
+        if self._secret_client is None:
+            raise RuntimeError("Secret client not bound to configuration")
         if registration:
             net.account = registration
             logger.info("Using existing ACME registration for %s", self.acme_email)
@@ -118,14 +141,16 @@ class Config:
             )
         )
         net.account = new_registration
-        self.store_registration(secret_client, new_registration)
+        self.store_registration(new_registration)
         logger.info("Created new ACME registration for %s", self.acme_email)
         return new_registration
 
-    def list_target_zones(self, dns_client: DnsManagementClient) -> List[str]:
+    def list_target_zones(self) -> List[str]:
+        if self._dns_client is None:
+            raise RuntimeError("DNS client not bound to configuration")
         zones: List[str] = []
         allowed = {z.lower() for z in self.dns_zones} if self.dns_zones else None
-        for zone in dns_client.zones.list_by_resource_group(self.resource_group):
+        for zone in self._dns_client.zones.list_by_resource_group(self.resource_group):
             name = zone.name.rstrip(".")
             if allowed and name.lower() not in allowed:
                 continue
@@ -135,12 +160,13 @@ class Config:
 
     def list_acme_enabled_records(
         self,
-        dns_client: DnsManagementClient,
         zone_name: str,
     ) -> List[RecordSet]:
+        if self._dns_client is None:
+            raise RuntimeError("DNS client not bound to configuration")
         records: List[RecordSet] = []
         for record_type in ("A", "CNAME"):
-            for record in dns_client.record_sets.list_by_type(self.resource_group, zone_name, record_type):
+            for record in self._dns_client.record_sets.list_by_type(self.resource_group, zone_name, record_type):
                 metadata = (record.metadata or {})
                 if metadata.get("acme", "").lower() == "true":
                     records.append(record)
@@ -149,15 +175,16 @@ class Config:
 
     def provision_certificate_for_record(
         self,
-        acme_client: Optional[client.ClientV2],
-        net: Optional[client.ClientNetwork],
-        jwk: Optional[JWKRSA],
-        dns_client: DnsManagementClient,
-        certificate_client: CertificateClient,
         registration: Optional[messages.RegistrationResource],
         zone_name: str,
         record: RecordSet,
     ) -> "ProvisioningResult":
+        if self._certificate_client is None or self._dns_client is None:
+            raise RuntimeError("Service clients not bound to configuration")
+
+        certificate_client = self._certificate_client
+        dns_client = self._dns_client
+
         domain = record.fqdn.rstrip(".")
         certificate_name = certificate_name_for_domain(domain)
         logger.info("Processing %s (certificate %s)", domain, certificate_name)
@@ -192,6 +219,9 @@ class Config:
                 message=message,
             )
 
+        acme_client = self._acme_client
+        net = self._net
+        jwk = self._jwk
         if net is None or acme_client is None or jwk is None:
             raise RuntimeError("ACME client not initialized")
 
