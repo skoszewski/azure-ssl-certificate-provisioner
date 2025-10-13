@@ -6,3 +6,4 @@ azure-mgmt-dns
 azure-keyvault-certificates
 azure-keyvault-secrets
 dnspython
+azure-functions
