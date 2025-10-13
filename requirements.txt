@@ -1,0 +1,6 @@
+acme
+josepy
+cryptography
+azure-identity
+azure-mgmt-dns
+dnspython
