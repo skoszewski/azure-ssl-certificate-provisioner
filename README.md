@@ -2,6 +2,12 @@
 
 This project automates the provisioning and renewal of SSL certificates for Azure defined DNS records stored in Azure DNS zones.
 
+The tool uses the ACME protocol (e.g., Let's Encrypt) to obtain SSL certificates and stores them securely in Azure Key Vault. It supports DNS-01 challenges for domain validation.
+
+It is designed to be run as a scheduled task (e.g., via Azure Functions or a cron job) to ensure that certificates are always up-to-date.
+
+The `run.sh` script provides a simple way to execute the tool in a Docker container. Push the Docker image to a container registry and run it in your preferred environment.
+
 ## Configuration
 
 The main entry point is `main.py`. Set the environment variables below before running it:
