@@ -337,7 +337,7 @@ def generate_domain_key_and_csr(domain: str) -> Tuple[str, bytes]:
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     key_pem = key.private_bytes(
         serialization.Encoding.PEM,
-        serialization.PrivateFormat.TraditionalOpenSSL,
+        serialization.PrivateFormat.PKCS8,
         serialization.NoEncryption(),
     ).decode("utf-8")
     subject = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, domain)])
